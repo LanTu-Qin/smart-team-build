@@ -108,7 +108,7 @@
 
 <!-- 底部固定保存按钮 -->
 <view class="footer">
-	<button class="save-btn" bindtap="submitForm" disabled="{{submitting}}" loading="{{submitting}}">
+	<button class="save-btn" bindtap="submitForm" disabled="{{!formChanged || submitting}}" loading="{{submitting}}">
 		{{submitting ? '保存中…' : '保存信息'}}
 	</button>
 </view>

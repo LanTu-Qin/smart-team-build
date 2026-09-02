@@ -399,10 +399,11 @@ class UserService {
     ].join('\n')
 
     // 3. 调用讯飞 MaaS（请求体与 competitionApi 完全对齐）
+    // 密钥已改为从云开发控制台环境变量读取（AI_API_KEY），未配置时请求会 401
     const AI_URL = 'https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions'
-    const AI_API_KEY = '46ff87bfd8bd7e5ceb3bcd4a0754f621:OTY5ZWJlZGMxNjYwZTNjY2Q3NTJiYThm'
-    const AI_MODEL_ID = 'xopdeepseekv32'
-    const AI_LORA_ID = '0'
+    const AI_API_KEY = process.env.AI_API_KEY || ''
+    const AI_MODEL_ID = process.env.AI_MODEL_ID || 'xopdeepseekv32'
+    const LORA_ID = '0'
 
     let resp
     try {
@@ -416,7 +417,7 @@ class UserService {
         temperature: 0.3,
         max_tokens: 1024,
         extra_headers: { // 关键：lora_id 必须放在 extra_headers，放顶层会报错
-          lora_id: AI_LORA_ID
+          lora_id: LORA_ID
         },
         stream_options: {
           include_usage: true

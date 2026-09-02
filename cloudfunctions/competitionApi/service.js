@@ -11,10 +11,13 @@ const db = cloud.database()
 const ENV_PREFIX = '636c-cloud1-d8gb9nir3847ec081-1444113575' // 请根据实际环境修改
 
 // 修正讯飞MaaS接口地址 v1，http协议
-const AI_API_KEY = "46ff87bfd8bd7e5ceb3bcd4a0754f621:OTY5ZWJlZGMxNjYwZTNjY2Q3NTJiYThm";
+// 密钥/模型已改为从云开发控制台环境变量读取（云函数→配置→环境变量），
+// 需在控制台配置 AI_API_KEY 与 AI_MODEL_ID 后重新部署本函数；
+// AI_API_KEY 不再保留本地明文兜底，未配置时请求会 401，便于及时发现。
+const AI_API_KEY = process.env.AI_API_KEY || "";
 const AI_URL = "https://maas-api.cn-huabei-1.xf-yun.com/v2/chat/completions";
-// 从服务卡片复制你的模型ID，必填
-const AI_MODEL_ID = "xopdeepseekv32";
+// 从服务卡片复制你的模型ID，必填（环境变量未配置时兜底默认模型）
+const AI_MODEL_ID = process.env.AI_MODEL_ID || "xopdeepseekv32";
 // lora_id 无微调模型固定填 "0"
 const LORA_ID = "0";
 const SYSTEM_PROMPT = `# 身份定位

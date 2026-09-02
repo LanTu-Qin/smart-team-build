@@ -28,7 +28,19 @@ Page({
     _avatarBase64: '',   // 新选头像的纯 base64（未选则为空），保存时传给云端上传
     // 用于显示技能描述（点击标签展开）
     showSkillDesc: false,
-    currentDescSkill: null
+    currentDescSkill: null,
+    // 表单是否被改动（与进入页面时的原始快照对比），用于启用/禁用保存按钮
+    formChanged: false,
+    // 原始数据快照（来自 store.user，便于检测改动）
+    _snapshot: {
+      username: '',
+      email: '',
+      introduction: '',
+      selectedSkills: '',   // 排序后逗号分隔的字符串
+      avatar: ''           // 头像 URL（用于判断是否换了头像）
+    },
+    // 等级 -> 颜色中文描述（与 ratingColor 保持一致，用于弹窗展示）
+    _colorName: { 1: '银色', 2: '蓝色', 3: '紫色', 4: '金色', 5: '红色' }
   },
 
   onLoad() {
@@ -42,13 +54,31 @@ Page({
       await store.user.loadUser()
       const userState = store.user.getUserInfo()
       const info = userState.userInfo || {}
+      const username = info.username || ''
+      const email = info.email || ''
+      const introduction = info.introduction || ''
+      const avatar = info.avatar || defaultAvatar
+      const selectedSkills = userState.skills || []
+      const skill_rating = info.skill_rating || {}
       this.setData({
-        'formData.username': info.username || '',
-        'formData.email': info.email || '',
-        'formData.introduction': info.introduction || '',
-        avatarPreview: info.avatar || defaultAvatar,
-        selectedSkills: userState.skills || [],
-        skill_rating: info.skill_rating || {}
+        'formData.username': username,
+        'formData.email': email,
+        'formData.introduction': introduction,
+        avatarPreview: avatar,
+        selectedSkills,
+        skill_rating,
+        // 进入页面后还未改动
+        formChanged: false,
+        // 写入原始快照（后续用户编辑会和这份对比）
+        _snapshot: {
+          username,
+          email,
+          introduction,
+          selectedSkills: selectedSkills.slice().sort().join(','),
+          avatar
+        },
+        // 刷新时清空本次会话中新选的头像缓存，避免与持久数据混用
+        _avatarBase64: ''
       })
       this.updateSelectedMap()
       this.updateSkillsMap()
@@ -89,6 +119,37 @@ Page({
     this.setData({ skillsMap: map })
   },
 
+  // 检测当前表单是否相对原始快照有改动，决定保存按钮是否可点
+  checkFormChanged() {
+    const s = this.data._snapshot
+    const f = this.data.formData
+    const changed =
+      (f.username || '') !== (s.username || '') ||
+      (f.email || '') !== (s.email || '') ||
+      (f.introduction || '') !== (s.introduction || '') ||
+      this.data.selectedSkills.slice().sort().join(',') !== (s.selectedSkills || '') ||
+      !!this.data._avatarBase64
+    if (this.data.formChanged !== changed) {
+      this.setData({ formChanged: changed })
+    }
+  },
+
+  // 把当前最新评级格式化为多行文本，供弹窗展示
+  buildRatingMessage() {
+    const rating = this.data.skill_rating || {}
+    const skillsMap = this.data.skillsMap || {}
+    const lines = []
+    this.data.selectedSkills.forEach(sid => {
+      const sidNum = Number(sid)
+      const sk = skillsMap[sidNum] || skillsMap[sid]
+      if (!sk) return
+      const r = rating[sidNum] || rating[sid] || 1
+      const colorName = this.data._colorName[r] || '银色'
+      lines.push(`「${sk.name}」为 ${r} 级，${colorName}`)
+    })
+    return lines.join('\n')
+  },
+
   // 选择头像
   chooseAvatar() {
     wx.chooseMedia({
@@ -107,6 +168,7 @@ Page({
             // 预览需要 data: 前缀；云端上传只需要纯 base64
             this.setData({ avatarPreview: `data:image/jpeg;base64,${pureBase64}` })
             this.data._avatarBase64 = pureBase64
+            this.checkFormChanged()
           },
           fail: (err) => {
             console.error('读取头像失败', err)
@@ -124,6 +186,7 @@ Page({
     this.setData({
       [`formData.${key}`]: value
     })
+    this.checkFormChanged()
   },
 
   // 技能 chip 点击切换
@@ -138,6 +201,7 @@ Page({
     }
     this.setData({ selectedSkills: list })
     this.updateSelectedMap()
+    this.checkFormChanged()
   },
 
   // 点击已选技能：弹出描述
@@ -219,33 +283,53 @@ Page({
           console.warn('技能保存失败', e)
         }
 
+        // 更新 store 并在本页原地刷新（不再跳转 user 页）
         await store.user.loadUser()
+        await this.loadUserData()
+        this.setData({ submitting: false })
         wx.showToast({ title: '保存成功', icon: 'success' })
 
-        // 触发 AI 评级（优先真实讯飞 MaaS，失败自动回退本地模拟）
-        this.triggerAIRating(uid, selectedSkills, introduction)
+        // 未选择技能时无需 AI 评级，直接停留本页
+        if (!selectedSkills || selectedSkills.length === 0) {
+          return
+        }
 
-        setTimeout(() => {
-          wx.navigateBack()
-        }, 1500)
+        // 触发 AI 评级（优先真实讯飞 MaaS，失败自动回退本地模拟），完成后弹窗提示。
+        // 注：不展示"AI 评级中"的全屏转圈，保存后静默等待，评级完成后原地刷新并弹窗。
+        const rated = await this.triggerAIRating(uid, selectedSkills, introduction)
+
+        if (rated) {
+          // 评级已入库，再次原地刷新以展示最新星级
+          await store.user.loadUser()
+          await this.loadUserData()
+          // 保存成功后把"原始快照"更新为最新数据，便于按钮回到禁用状态
+          const lines = this.buildRatingMessage()
+          wx.showModal({
+            title: 'AI 评级完成',
+            content: `根据您的个人简介中对技能的描述，AI 已为您生成对应评级：\n${lines}`,
+            showCancel: false,
+            confirmText: '知道了'
+          })
+        }
       } else {
+        this.setData({ submitting: false })
         wx.showToast({ title: res.result.msg || '保存失败', icon: 'none' })
       }
     } catch (err) {
       console.error('保存失败', err)
-      wx.showToast({ title: '网络异常', icon: 'none' })
-    } finally {
       this.setData({ submitting: false })
+      wx.showToast({ title: '网络异常', icon: 'none' })
     }
   },
 
   // ========== AI 评级 ==========
   // 优先调用真实 AI（userApi.aiRateSkills，讯飞 MaaS），失败时回退本地关键词模拟评级。
+  // 返回 true 表示评级结果已入库（真实 AI 或本地模拟成功），false 表示未评级/入库失败。
   // 注意：userApi 云函数需已 `npm install axios` 并重新部署，否则会走本地模拟。
   async triggerAIRating(uid, skills, introduction) {
     if (!skills || skills.length === 0) {
       console.log('[AI Rating] 无技能，跳过评级')
-      return
+      return false
     }
 
     console.log('[AI Rating] 触发评级:', { uid, skills, introduction })
@@ -262,7 +346,7 @@ Page({
       console.log('res.result:',res.result);
       if (res.result && res.result.code === 0) {
         console.log('[AI Rating] AI 评级成功:', res.result.data)
-        return
+        return true
       }
       console.warn('[AI Rating] AI 评级失败，回退本地模拟:', res.result && res.result.msg)
     } catch (err) {
@@ -280,8 +364,10 @@ Page({
         }
       })
       console.log('[AI Rating] 本地模拟评级保存成功', rating)
+      return true
     } catch (err) {
       console.error('[AI Rating] 本地模拟评级保存失败', err)
+      return false
     }
   },
 
