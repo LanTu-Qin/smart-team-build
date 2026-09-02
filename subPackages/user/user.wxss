@@ -1,0 +1,299 @@
+page {
+  background-color: #f7f9fc;
+  margin: 0;
+  padding: 0;
+}
+.page {
+  width: 100%;
+}
+/* 通栏卡片类：铺满屏幕，左右无边距 */
+.full-width {
+  width: 95%;
+  box-sizing: border-box;
+  padding: 40rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04);
+  margin:0 auto;
+  margin-bottom: 30rpx;
+}
+
+/* ========== 用户顶部卡片 ========== */
+.user-card {
+  display: flex;
+  align-items: center;
+}
+.avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background-color: #eee;
+  margin-right: 24rpx;
+}
+.user-text {
+  flex: 1;
+}
+.login-text {
+  font-size: 38rpx;
+  color: #222;
+  display: block;
+}
+.tip {
+  font-size: 26rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+/* 个人简介：最多两行，超长省略 */
+.user-intro {
+  font-size: 26rpx;
+  color: #999;
+  line-height: 1.5;
+  margin-top: 10rpx;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-all;
+}
+.jump-btn {
+  font-size: 30rpx;
+  color: #409eff;
+}
+
+/* ========== 通用头部（技能/队伍共用） ========== */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+.circle-icon {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background-color: #e6f4ff;
+  margin-right: 16rpx;
+}
+.title {
+  font-size: 34rpx;
+  color: #222;
+  flex: 1;
+}
+
+/* ========== 技能标签区域 ========== */
+.tag-wrap {
+  display: flex;
+  gap: 20rpx;
+  flex-wrap: wrap;
+}
+.skill-tag {
+  padding: 12rpx 32rpx;
+  background: #e6f4ff;
+  color: #1890ff;
+  font-size: 28rpx;
+  border-radius: 999rpx;
+}
+/* 按 AI 评级等级染色（浅底深字，与 profile 图标同色系） */
+.skill-tag.lv0 { background: #F2F4F7; color: #9CA3AF; }
+.skill-tag.lv1 { background: #F3F4F6; color: #6B7280; }
+.skill-tag.lv2 { background: #E8F1FF; color: #4F8CFF; }
+.skill-tag.lv3 { background: #F3EEFF; color: #8B5CF6; }
+.skill-tag.lv4 { background: #FFF6E6; color: #D97706; }
+.skill-tag.lv5 { background: #FDECEC; color: #EF4444; box-shadow: 0 0 12rpx rgba(239, 68, 68, 0.35); }
+
+/* ========== 队伍外层容器 + 内部子卡片 ========== */
+.team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.team-item-card {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1rpx solid #e8edf3;
+  border-radius: 16rpx;
+  padding: 32rpx;
+}
+.team-name {
+  font-size: 36rpx;
+  color: #111;
+  margin-bottom: 18rpx;
+}
+.personal-tag {
+  display: inline-block;
+  margin-left: 12rpx;
+  padding: 4rpx 14rpx;
+  font-size: 22rpx;
+  color: #fff;
+  background: #34c759;
+  border-radius: 8rpx;
+  vertical-align: middle;
+}
+.team-row {
+  font-size: 28rpx;
+  color: #555;
+  margin: 12rpx 0;
+}
+.match-row {
+  margin-top: 18rpx;
+}
+/* 赛事名称超长省略 */
+.ellipsis {
+  /* overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 480rpx; */
+  word-break: break-word;
+  display: inline;
+}
+/* ========== 个人匹配池区域 ========== */
+.match-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+.match-btn {
+  flex: 1;
+  font-size: 26rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  border-radius: 8rpx;
+  padding: 0;
+  margin: 0;
+  border: none;
+}
+.match-btn::after { border: none; }
+.match-btn-view {
+  background: #007aff;
+  color: #fff;
+}
+.match-btn-cancel {
+  background: #f0f0f0;
+  color: #555;
+}
+.match-skills {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin: 8rpx 0 4rpx;
+}
+
+/* 技能弹出层整体内容区 */
+.skill-popup-content {
+  padding: 30rpx 24rpx 50rpx 24rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* 顶部操作栏 */
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30rpx;
+}
+
+.popup-cancel {
+  font-size: 28rpx;
+  color: #666;
+  padding: 10rpx 20rpx;
+}
+
+.popup-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.popup-confirm {
+  font-size: 28rpx;
+  color: #409EFF;
+  padding: 10rpx 20rpx;
+}
+
+/* 输入框区域 */
+.popup-input-wrap {
+  margin-bottom: 30rpx;
+}
+
+.skill-input {
+  background: #f7f8fa;
+  border-radius: 8rpx;
+}
+
+/* 已有技能标题 */
+.tag-list-title {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 20rpx;
+}
+
+/* 技能标签列表 */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.tag-item {
+  display: flex;
+  align-items: center;
+  background: #e8f4ff;
+  color: #409EFF;
+  padding: 12rpx 16rpx;
+  border-radius: 6rpx;
+  font-size: 26rpx;
+}
+
+.tag-text {
+  margin-right: 8rpx;
+}
+
+.tag-close {
+  font-size: 20rpx;
+  color: #409EFF;
+}
+
+/* 空状态 */
+.empty-tip {
+  font-size: 26rpx;
+  color: #999;
+  padding: 20rpx 0;
+  text-align: center;
+}
+/* 搜索联想下拉框 */
+.search-suggest {
+  background: #fff;
+  border:1rpx solid #eee;
+  border-top:0;
+  border-radius:0 0 8rpx 8rpx;
+  margin-top:-10rpx;
+  z-index:9;
+}
+.suggest-item {
+  padding:20rpx 24rpx;
+  font-size:28rpx;
+  color:#333;
+}
+.suggest-item:active {
+  background:#f2f3f5;
+}
+.suggest-item {
+  display: flex;
+  flex-direction: column;
+  padding: 16rpx 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.suggest-name {
+  font-size: 28rpx;
+  color: #333;
+}
+.suggest-desc {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

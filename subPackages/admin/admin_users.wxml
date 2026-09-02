@@ -1,0 +1,44 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <input
+      class="search-input"
+      placeholder="输入 uid 或用户名搜索"
+      placeholder-class="search-placeholder"
+      value="{{keyword}}"
+      bindinput="onInput"
+      confirm-type="search"
+      bindconfirm="doSearch"
+    />
+    <button class="search-btn" size="mini" bindtap="doSearch" disabled="{{loading}}">搜索</button>
+  </view>
+
+  <!-- 结果列表 -->
+  <view class="list" wx:if="{{list.length > 0}}">
+    <view class="user-item" wx:for="{{list}}" wx:key="_id">
+      <image class="user-avatar" src="{{item.userInfo.avatar || '/subPackages/images/user/user.jpg'}}" mode="aspectFill"></image>
+      <view class="user-info">
+        <view class="user-name">
+          <text class="name-text">{{item.userInfo.username || '未命名'}}</text>
+          <text class="role-tag">{{roleMap[item.role] || item.role}}</text>
+        </view>
+        <view class="user-uid">uid: {{item.userInfo.uid}}</view>
+      </view>
+      <button
+        class="auth-btn {{item.isAdmin ? 'auth-cancel' : 'auth-grant'}}"
+        size="mini"
+        data-uid="{{item.userInfo.uid}}"
+        bindtap="toggleAdmin"
+        disabled="{{loading}}"
+      >{{item.isAdmin ? '取消授权' : '授予权限'}}</button>
+    </view>
+  </view>
+
+  <!-- 空态 -->
+  <view class="empty" wx:if="{{searched && list.length === 0}}">
+    <text>未找到相关用户</text>
+  </view>
+  <view class="empty" wx:if="{{!searched}}">
+    <text>输入用户 uid 或用户名搜索，可授予/取消管理员权限</text>
+  </view>
+</view>

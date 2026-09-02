@@ -1,0 +1,101 @@
+<view class="page-container">
+<!-- 顶部轮播 -->
+<swiper class="swiper" indicator-dots circular autoplay>
+  <swiper-item wx:for="{{bannerList}}" wx:key="*this">
+    <image src="{{item}}" class="banner" mode="widthFix"></image>
+  </swiper-item>
+</swiper>
+
+<view class="title">📋 可报名竞赛列表</view>
+
+<!-- 折叠筛选：赛事等级 / 参赛方式 / 报名状态 多选，默认收起 -->
+<view class="filter-panel">
+  <view class="filter-header" bindtap="toggleFilter">
+    <text class="filter-title">筛选</text>
+    <view class="filter-arrow {{filterExpanded ? 'arrow-open' : ''}}">▾</view>
+  </view>
+  <view class="filter-body {{filterExpanded ? '' : 'filter-collapsed'}}">
+    <view class="filter-group">
+      <text class="filter-group-label">赛事等级</text>
+      <view class="filter-options">
+        <view wx:for="{{levelOptions}}" wx:key="value"
+              class="filter-tag {{filterLevelsSelected[item.value] ? 'tag-active' : ''}}"
+              bindtap="toggleFilterItem"
+              data-group="levels" data-value="{{item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+    <view class="filter-group">
+      <text class="filter-group-label">参赛方式</text>
+      <view class="filter-options">
+        <view wx:for="{{typeOptions}}" wx:key="value"
+              class="filter-tag {{filterTypesSelected[item.value] ? 'tag-active' : ''}}"
+              bindtap="toggleFilterItem"
+              data-group="types" data-value="{{item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+    <view class="filter-group">
+      <text class="filter-group-label">报名状态</text>
+      <view class="filter-options">
+        <view wx:for="{{statusOptions}}" wx:key="value"
+              class="filter-tag {{filterStatusesSelected[item.value] ? 'tag-active' : ''}}"
+              bindtap="toggleFilterItem"
+              data-group="statuses" data-value="{{item.value}}">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<view class="list">
+  <view class="item" wx:for="{{filteredList}}" wx:key="cid">
+    <!-- 标题+等级 同一行 -->
+    <view class="item-header">
+      <view class="item-name">{{item.name}}</view>
+      <view class="item-level level-{{item.levelKey}}">{{item.level}}</view>
+    </view>
+
+    <!-- 信息行：参赛方式 + 状态徽章（背景色随状态变化） -->
+    <view class="item-info">
+      <text>参赛方式：{{item.type}}</text>
+      <view class="status-tag status-{{item.statusKey}}">{{item.computedStatus}}</view>
+    </view>
+
+    <!-- 时间行 -->
+    <view class="item-time">
+      报名时间：{{item.start}} ~ {{item.end}}
+    </view>
+
+    <!-- 按钮 -->
+    <button class="btn" bindtap="goToEventDetails" data-cid="{{item.cid}}">查看详情</button>
+  </view>
+
+  <!-- 筛选后无结果提示 -->
+  <view wx:if="{{filteredList.length === 0 && list.length > 0}}" class="empty-tip">
+    没有符合条件的赛事
+  </view>
+</view>
+
+<!-- 新增：管理赛事悬浮按钮（仅管理员可见） -->
+<view wx:if="{{isAdmin}}" class="manage-btn" bindtap="goToAdmin">
+  <text>赛事管理</text>
+</view>
+</view>
+
+
+<!-- 底部导航栏 -->
+<view class="tab-bar">
+  <view class="tab-item" bindtap="goToJoined">
+    <view class="tab-label">
+      <text>我的邀请/申请</text>
+      <view wx:if="{{hasRequests}}" class="tab-dot"></view>
+    </view>
+  </view>
+  <view class="tab-item" bindtap="goToCreate">
+    <text>新建队伍</text>
+  </view>
+  <view class="tab-item" bindtap="goToMatch">
+    <text>招募大厅</text>
+  </view>
+  <view class="tab-item" bindtap="goToUser">
+    <text>我的</text>
+  </view>
+</view>

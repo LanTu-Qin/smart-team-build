@@ -1,0 +1,107 @@
+<!-- pages/personal/personal.wxml -->
+<view class="page">
+  <!-- 顶部用户通栏卡片 全屏宽 -->
+  <view class="user-card full-width">
+    <view class="avatar" bindtap="goUserInfo">
+      <image class="avatar" src="{{isLogin ? userAvatar : '/subPackages/images/user/user.jpg'}}" mode="aspectFill" bindtap="goUserInfo"></image>
+    </view>
+    <view class="user-text" bindtap="goUserInfo">
+      <text class="login-text">{{isLogin ? userInfo.name : '请登录'}}</text>
+      <!-- 个人简介：只渲染，不编辑；无简介时不显示 -->
+      <text class="user-intro" wx:if="{{isLogin && userInfo.intro}}">{{userInfo.intro}}</text>
+    </view>
+    <view class="jump-btn" bindtap="goUserInfo">个人信息 ></view>
+  </view>
+
+  <!-- 技能标签通栏卡片 全屏宽 -->
+  <view class="skill-card full-width">
+    <view class="card-header">
+      <van-icon name="medal-o" class="circle-icon" size="36rpx" color="#409EFF" />
+      <text class="title">技能标签</text>
+      <view class="jump-btn" bindtap="editSkill">编辑 ></view>
+    </view>
+    <view class="tag-wrap">
+      <text wx:for="{{skillTagList}}" wx:key="sid" class="skill-tag lv{{item.level}}">{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- 加入队伍外层通栏大卡片 -->
+  <view class="team-wrap-card full-width">
+    <view class="card-header">
+      <van-icon name="flag-o" class="circle-icon" size="36rpx" color="#409EFF" />
+      <text class="title">加入的队伍</text>
+    </view>
+    <!-- 内部队伍列表：每个队伍独立子卡片 -->
+    <view class="team-list">
+      <view wx:for="{{teamList}}" wx:key="teamId" class="team-item-card" bindtap="goTeamDetail" data-id="{{item.teamId}}">
+        <view class="team-name">
+          {{item.teamName}}
+          <text wx:if="{{item.isPersonal}}" class="personal-tag">个人参赛</text>
+        </view>
+        <view class="team-row">队长：<text>{{item.leaderName || '暂无'}}</text></view>
+        <view class="team-row">队员：<text>{{item.members || '暂无队员'}}</text></view>
+        <view class="team-row" wx:if="{{item.advisors}}">指导老师：<text>{{item.advisors}}</text></view>
+        <view class="team-row match-row">参赛赛事：<text class="ellipsis">{{item.matchName || '暂未参赛'}}</text></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 【新增】个人匹配池：进入匹配池的赛事 + 技能 + 查看/取消 -->
+  <view wx:if="{{myMatchList.length > 0}}" class="match-wrap-card full-width">
+    <view class="card-header">
+      <van-icon name="exchange" class="circle-icon" size="36rpx" color="#FF9500" />
+      <text class="title">匹配中的赛事</text>
+    </view>
+    <view class="team-list">
+      <view wx:for="{{myMatchList}}" wx:key="cid" class="team-item-card match-item-card">
+        <view class="team-name">{{item.compName}}</view>
+        <view class="match-skills">
+          <text wx:for="{{item.skills}}" wx:for-item="sk" wx:key="sid" class="skill-tag lv{{sk.level}}">{{sk.name}}</text>
+        </view>
+        <view class="match-actions">
+          <button class="match-btn match-btn-view" bindtap="viewMatchResult" data-cid="{{item.cid}}">查看匹配结果</button>
+          <button class="match-btn match-btn-cancel" bindtap="cancelMatch" data-cid="{{item.cid}}" data-index="{{index}}">取消匹配</button>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部弹出层：编辑技能标签 -->
+  <van-popup show="{{showSkillPopup}}" position="bottom" round bind:close="closeSkillPopup" custom-style="padding: 0; width: 100%; box-sizing: border-box;">
+    <view class="skill-popup-content">
+      <!-- 顶部操作栏 -->
+      <view class="popup-header">
+        <text class="popup-cancel" bindtap="closeSkillPopup">取消</text>
+        <text class="popup-title">编辑技能</text>
+        <text class="popup-confirm" bindtap="saveSkill">确认</text>
+      </view>
+
+      <!-- 搜索输入框区域 -->
+      <view class="popup-input-wrap">
+        <van-field value="{{currentSkillInput}}" placeholder="搜索/输入新技能" bind:input="onSkillInput" autofocus clearable class="skill-input" left-icon="search" />
+        <!-- 搜索联想下拉列表 -->
+        <view wx:if="{{currentSkillInput && searchMatchList.length > 0}}" class="search-suggest">
+          <view wx:for="{{searchMatchList}}" wx:key="index" class="suggest-item" bindtap="selectSuggest" data-name="{{item.name}}">
+            <view class="suggest-name">{{item.name}}</view>
+            <view class="suggest-desc" wx:if="{{item.descSnippet}}">{{item.descSnippet}}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 已有技能标题 -->
+      <view class="tag-list-title">已有技能</view>
+      <!-- 已有技能标签（带删除叉号） -->
+      <view class="tag-list">
+        <view wx:for="{{tempSkillList}}" wx:key="index" class="tag-item">
+          <text class="tag-text">{{item}}</text>
+          <van-icon name="cross" class="tag-close" bindtap="removeSkillTag" data-index="{{index}}" />
+        </view>
+      </view>
+
+      <!-- 空状态 -->
+      <view wx:if="{{tempSkillList.length === 0}}" class="empty-tip">
+        暂无技能，上方搜索选择或输入新增
+      </view>
+    </view>
+  </van-popup>
+</view>

@@ -1,0 +1,138 @@
+<view class="container">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <view class="loading-spinner"></view>
+    <text>消息加载中...</text>
+  </view>
+
+  <!-- 未登录 -->
+  <view wx:elif="{{!isLogin}}" class="login-tip">
+    <view class="login-icon">🔔</view>
+    <text class="login-text">登录后查看你的消息</text>
+    <button class="btn-go-login" bindtap="goLogin">前往登录</button>
+  </view>
+
+  <!-- 已登录 -->
+  <block wx:else>
+    <!-- 1. 系统通知 -->
+    <view wx:if="{{notifyList.length > 0}}" class="section">
+      <view class="section-header">
+        <text class="section-title">系统通知</text>
+        <text class="section-count warn">{{notifyCount}}</text>
+      </view>
+      <view wx:for="{{notifyList}}" wx:key="_id" class="msg-card notify-card">
+        <view class="msg-head">
+          <text class="msg-tag tag-notify">系统</text>
+          <text class="msg-from">{{item.msg || '您的小队有成员变动'}}</text>
+          <!-- 如果有 createTime 可显示 -->
+          <text class="msg-time" wx:if="{{item.createTime}}">{{item.createTime}}</text>
+        </view>
+        <view class="msg-actions">
+          <button class="btn-link" bindtap="handleNotify" data-id="{{item._id}}" data-action="reject">我已知道</button>
+          <button class="btn-link primary" bindtap="handleNotify" data-action="go" data-tid="{{item.tid}}">查看队伍</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 2. 我的队伍收到的申请 -->
+    <view wx:if="{{applyReceivedList.length > 0}}" class="section">
+      <view class="section-header">
+        <text class="section-title">队伍收到的申请</text>
+        <text class="section-count warn">{{applyReceivedCount}}</text>
+      </view>
+      <view wx:for="{{applyReceivedList}}" wx:key="_id" class="msg-card apply-received-card">
+        <view class="msg-head">
+          <text class="msg-tag tag-apply">入队申请</text>
+          <text class="msg-from">{{item.username}} · {{item.teamName}}</text>
+        </view>
+        <view class="msg-body" bindtap="goTeamDetail" data-tid="{{item.tid}}">
+          <view class="info-line">
+            <text class="info-key">期望技能</text>
+            <text class="info-val">{{item.skillName}}</text>
+          </view>
+        </view>
+        <view class="msg-actions">
+          <button class="btn-reject" bindtap="handleApplyReceived" data-id="{{item._id}}" data-action="reject" hover-class="btn-hover">拒绝</button>
+          <button class="btn-accept" bindtap="handleApplyReceived" data-id="{{item._id}}" data-action="accept" hover-class="btn-hover">同意入队</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 3. 我收到的邀请 -->
+    <view wx:if="{{inviteList.length > 0}}" class="section">
+      <view class="section-header">
+        <text class="section-title">我收到的邀请</text>
+        <text class="section-count warn">{{inviteCount}}</text>
+      </view>
+      <view wx:for="{{inviteList}}" wx:key="_id" class="msg-card invite-card">
+        <view class="msg-head">
+          <text class="msg-tag tag-invite">{{item.isAdvisor ? '指导老师邀请' : '入队邀请'}}</text>
+          <text class="msg-from">{{item.teamName}}</text>
+        </view>
+        <view class="msg-body" bindtap="goTeamDetail" data-tid="{{item.tid}}">
+          <view class="info-line">
+            <text class="info-key">你的角色</text>
+            <text class="info-val">{{item.skillName}}</text>
+          </view>
+        </view>
+        <view class="msg-actions">
+          <button class="btn-reject" bindtap="handleInvite" data-id="{{item._id}}" data-action="reject" hover-class="btn-hover">拒绝</button>
+          <button class="btn-accept" bindtap="handleInvite" data-id="{{item._id}}" data-action="accept" hover-class="btn-hover">{{item.isAdvisor ? '同意指导' : '接受邀请'}}</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- 4. 我发出的申请 -->
+    <view wx:if="{{applyList.length > 0}}" class="section">
+      <view class="section-header">
+        <text class="section-title">我发出的申请</text>
+        <text class="section-count">{{applyCount}}</text>
+      </view>
+      <view wx:for="{{applyList}}" wx:key="_id" class="msg-card apply-card">
+        <view class="msg-head">
+          <text class="msg-tag tag-sent">已申请</text>
+          <text class="msg-from">→ {{item.teamName}}</text>
+        </view>
+        <view class="msg-body" bindtap="goTeamDetail" data-tid="{{item.tid}}">
+          <view class="info-line">
+            <text class="info-key">期望技能</text>
+            <text class="info-val">{{item.skillName}}</text>
+          </view>
+        </view>
+        <view class="msg-status">
+          <text class="status-pending">⏳ 待队长审核</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 5. 我发出的邀请 -->
+    <view wx:if="{{inviteSentList.length > 0}}" class="section">
+      <view class="section-header">
+        <text class="section-title">我发出的邀请</text>
+        <text class="section-count">{{inviteSentCount}}</text>
+      </view>
+      <view wx:for="{{inviteSentList}}" wx:key="_id" class="msg-card invite-sent-card">
+        <view class="msg-head">
+          <text class="msg-tag tag-sent">已邀请</text>
+          <text class="msg-from">→ {{item.username}}</text>
+        </view>
+        <view class="msg-body" bindtap="goTeamDetail" data-tid="{{item.tid}}">
+          <view class="info-line">
+            <text class="info-key">{{item.isAdvisor ? '邀请身份' : '期望技能'}}</text>
+            <text class="info-val">{{item.skillName}}</text>
+          </view>
+        </view>
+        <view class="msg-status">
+          <text class="status-pending">⏳ 等待对方响应</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空态 -->
+    <view wx:if="{{notifyList.length === 0 && applyReceivedList.length === 0 && inviteList.length === 0 && applyList.length === 0 && inviteSentList.length === 0}}" class="empty">
+      <view class="empty-icon">📭</view>
+      <text class="empty-text">暂无消息</text>
+      <text class="empty-desc">去组队或查看队伍动态吧</text>
+    </view>
+  </block>
+</view>

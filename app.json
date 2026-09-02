@@ -1,0 +1,59 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "subPackages": [
+    {
+      "root": "subPackages/admin",
+      "pages": [
+        "admin",
+        "admin_users"
+      ]
+    },
+    {
+      "root": "subPackages/competition",
+      "pages": [
+        "competition_info"
+      ]
+    },
+    {
+      "root": "subPackages/joined",
+      "pages": [
+        "joined"
+      ]
+    },
+    {
+      "root": "subPackages/team",
+      "pages": [
+        "team_info",
+        "team_list",
+        "team_push"
+      ]
+    },
+    {
+      "root": "subPackages/user",
+      "pages": [
+        "user",
+        "profile",
+        "profile_register",
+        "user_push"
+      ]
+    }
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Weixin",
+    "navigationBarBackgroundColor": "#ffffff"
+  },
+  "style": "v2",
+  "componentFramework": "glass-easel",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {
+    "van-icon": "/miniprogram_npm/@vant/weapp/icon/index",
+    "van-popup": "/miniprogram_npm/@vant/weapp/popup/index",
+    "van-field": "/miniprogram_npm/@vant/weapp/field/index",
+    "van-button": "/miniprogram_npm/@vant/weapp/button/index",
+    "van-picker": "/miniprogram_npm/@vant/weapp/picker/index"
+  }
+}

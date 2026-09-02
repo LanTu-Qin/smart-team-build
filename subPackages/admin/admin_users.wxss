@@ -1,0 +1,121 @@
+.container {
+  /* 重置 app.wxss 全局 .container 的 flex 布局（display:flex + space-between），
+     否则剩余空间会被均匀分配到子元素之间，造成随内容减少而增大的空白 */
+  display: block;
+  height: auto;
+  padding: 24rpx;
+  min-height: 100vh;
+  background: #f5f6f8;
+  box-sizing: border-box;
+}
+
+/* 搜索栏 */
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+.search-input {
+  flex: 1;
+  height: 64rpx;
+  line-height: 64rpx;
+  font-size: 28rpx;
+}
+.search-placeholder {
+  color: #b0b3bf;
+}
+.search-btn {
+  margin-left: 20rpx;
+  background: #4f7cff;
+  color: #ffffff;
+  border-radius: 8rpx;
+}
+.search-btn[disabled] {
+  opacity: 0.6;
+  color: #ffffff;
+  background: #4f7cff;
+}
+
+/* 列表 */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.user-item {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+.user-avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: #e8eaef;
+  flex-shrink: 0;
+}
+.user-info {
+  flex: 1;
+  margin-left: 20rpx;
+  min-width: 0;
+}
+.user-name {
+  display: flex;
+  align-items: center;
+}
+.name-text {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2430;
+  max-width: 240rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.role-tag {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: #4f7cff;
+  background: rgba(79, 124, 255, 0.1);
+  border-radius: 6rpx;
+  padding: 2rpx 10rpx;
+}
+.user-uid {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #9aa0ad;
+}
+
+/* 授权按钮 */
+.auth-btn {
+  margin-left: 16rpx;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+}
+.auth-grant {
+  background: #4f7cff;
+  color: #ffffff;
+}
+.auth-cancel {
+  background: #ffffff;
+  color: #e64340;
+  border: 1rpx solid #e64340;
+}
+.auth-btn[disabled] {
+  opacity: 0.6;
+}
+
+/* 空态 */
+.empty {
+  margin-top: 160rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #9aa0ad;
+}

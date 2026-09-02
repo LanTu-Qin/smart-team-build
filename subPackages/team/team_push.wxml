@@ -1,0 +1,158 @@
+<view class="team-push-container">
+  <!-- [修改] 标题根据 editMode 动态显示 -->
+  <view class="form-title">{{editMode ? '编辑战队' : '创建新战队'}}</view>
+
+  <form bindsubmit="submitTeamForm">
+    <!-- 队伍名称 -->
+    <view class="form-item">
+      <label class="form-label">队伍名称 <text class="required">*</text></label>
+      <input 
+        name="teamName" 
+        placeholder="例如：ACM程序竞赛队" 
+        maxlength="20" 
+        required
+        value="{{formData.name}}"
+        bindinput="handleInputChange"
+        data-key="name"
+      />
+    </view>
+
+    <!-- 参赛赛事 -->
+    <view class="form-item">
+      <label class="form-label">参赛赛事 <text class="required">*</text></label>
+      <input 
+        class="comp-search-input"
+        placeholder="输入赛事名称或CID搜索"
+        value="{{compSearchValue}}"
+        bindinput="handleCompSearchInput"
+        confirm-type="search"
+      />
+      <view class="selected-comp-tags" wx:if="{{formData.selectedComps.length > 0}}">
+        <view 
+          class="comp-tag" 
+          wx:for="{{formData.selectedComps}}" 
+          wx:key="id"
+          data-cid="{{item.id}}"
+          bindtap="removeCompTag"
+          hover-class="tag-hover"
+        >
+          {{item.name}} ×
+        </view>
+      </view>
+      <view class="comp-search-result" wx:if="{{showCompResult && compSearchResult.length > 0}}">
+        <view 
+          class="result-item" 
+          wx:for="{{compSearchResult}}" 
+          wx:key="id"
+          bindtap="selectCompItem"
+          data-cid="{{item.id}}"
+        >
+          <text>{{item.name}} (赛事代码: {{item.id}})</text>
+        </view>
+      </view>
+      <view class="comp-search-empty" wx:if="{{showCompResult && compSearchResult.length === 0}}">
+        未找到匹配的赛事
+      </view>
+      <view class="picker-display" wx:if="{{formData.selectedComps.length === 0 && !showCompResult}}">
+        请搜索并选择参赛赛事
+      </view>
+    </view>
+
+    <!-- 队伍最大人数 -->
+    <!-- <view class="form-item">
+      <label class="form-label">队伍最大人数 <text class="required">*</text></label>
+      <view class="picker-display">{{autoMaxNum || '请先配置招募需求'}}</view>
+    </view> -->
+
+    <!-- ========== [修改] 队长技能选择：编辑模式下禁用 ========== -->
+    <view class="form-item">
+      <label class="form-label">队长技能定位 <text class="required">*</text></label>
+      <picker 
+        mode="selector" 
+        range="{{userSkills}}" 
+        range-key="name"
+        bindchange="handleLeaderSkillChange"
+        value="{{formData.leaderSkillIndex}}"
+        disabled="{{editMode}}"
+      >
+        <view class="picker-display">
+          {{formData.leader ? formData.leader.name : '请选择您的技能定位'}}
+        </view>
+      </picker>
+      <!-- [新增] 编辑模式下显示提示 -->
+      <view wx:if="{{editMode}}" class="edit-hint">队长技能不可修改</view>
+    </view>
+
+    <!-- 招募需求 -->
+    <view class="form-item">
+      <label class="form-label">队伍招募需求 <text class="required">*</text></label>
+      <view class="needs-tips">注：需求人数不能少于队内现有成员数（初始仅队长）</view>
+      <view class="needs-list">
+        <view class="need-item" wx:for="{{formData.teamNeedsList}}" wx:key="sid">
+          <view class="skill-name">
+            {{item.skillName}}
+            <text wx:if="{{item.isLeader}}" class="leader-tag">队长</text>
+          </view>
+          <view class="num-adjust">
+            <button size="mini" class="num-btn" bindtap="minusNeedNum" data-sid="{{item.sid}}" disabled="{{item.num <= 1}}">-</button>
+            <text>{{item.num}}</text>
+            <button size="mini" class="num-btn" bindtap="addNeedNum" data-sid="{{item.sid}}">+</button>
+          </view>
+          <!-- 【改版】队长技能不显示删除按钮，避免误点被拦截；普通技能正常可删 -->
+          <button wx:if="{{!item.isLeader}}" size="mini" bindtap="removeNeedItem" data-sid="{{item.sid}}">删除</button>
+          <text wx:else class="leader-lock">队长技能</text>
+        </view>
+        <picker mode="selector" 
+          range="{{allSkills}}" 
+          range-key="name"
+          bindchange="addNeedItem"
+          value="{{formData.addNeedIndex}}"
+        >
+          <button class="add-need-btn">+ 添加招募技能</button>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 加入条件 -->
+    <view class="form-item">
+      <label class="form-label">加入条件 <text class="required">*</text></label>
+      <picker mode="selector" 
+        range="{{conditionOptions}}" 
+        range-key="name"
+        bindchange="handleConditionChange"
+        value="{{formData.conditionIndex}}"
+      >
+        <view class="picker-display">{{formData.conditionDesc || '请选择队伍加入条件'}}</view>
+      </picker>
+    </view>
+
+    <!-- 队伍简介 -->
+    <view class="form-item">
+      <label class="form-label">队伍简介</label>
+      <textarea 
+        name="intro" 
+        placeholder="例如：算法刷题、组队参赛，零基础也可以一起学习" 
+        maxlength="200"
+        value="{{formData.intro}}"
+        bindinput="handleInputChange"
+        data-key="intro"
+      />
+    </view>
+
+    <!-- 是否开启匹配招募 -->
+    <view class="form-item">
+      <label class="form-label">开启招募匹配</label>
+      <switch 
+        name="isMatching" 
+        checked="{{formData.is_matching}}"
+        bindchange="handleSwitchChange"
+        data-key="is_matching"
+      />
+    </view>
+
+    <!-- [修改] 提交按钮文字根据模式动态显示 -->
+    <button form-type="submit" class="submit-btn" disabled="{{!formIsValid}}">
+      {{editMode ? '更新队伍' : '创建队伍'}}
+    </button>
+  </form>
+</view>

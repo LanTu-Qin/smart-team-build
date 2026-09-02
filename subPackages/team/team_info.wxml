@@ -1,0 +1,214 @@
+<view wx:if="{{team}}" class="page-wrap">
+  <!-- 队伍基础信息卡片 -->
+  <view class="team-card">
+    <view class="info-row">
+      <text class="label">队伍名称</text>
+      <view class="val-row">
+        <text class="val">{{team.name}}</text>
+        <text class="copy-text" bindtap="copyTid">复制TID</text>
+      </view>
+    </view>
+
+    <view class="info-row">
+      <text class="label">队伍简介</text>
+      <text class="val">{{team.intro}}</text>
+    </view>
+
+    <view class="info-row">
+      <text class="label">入队条件</text>
+      <text class="val">{{team.condition === 0 ? '无需审核' : team.condition === 1 ? '需要审核' : '仅邀请加入'}}</text>
+    </view>
+
+    <view class="info-row">
+      <text class="label">队伍人数上限</text>
+      <text class="val">{{team.maxNum}}人</text>
+    </view>
+
+    <!-- 绑定赛事（使用预处理后的 compList） -->
+    <view class="info-row">
+      <text class="label">绑定赛事</text>
+      <block wx:for="{{team.compList}}" wx:key="cid">
+        <view class="comp-item" bindtap="goCompPage" data-cid="{{item.cid}}">
+          <text class="comp-name">{{item.compName}}</text>
+          <text class="copy-text" catchtap="copyCid" data-cid="{{item.cid}}">复制CID</text>
+        </view>
+      </block>
+    </view>
+
+    <!-- 招募技能需求（使用 needList；招满时显示已满足提示；非队员也可查看） -->
+    <view class="info-row need-row">
+      <text class="label">当前招募需求</text>
+      <view wx:if="{{team.needList.length > 0}}" class="need-list">
+        <view wx:for="{{team.needList}}" wx:key="sid" class="need-item">
+          <text>{{item.skillName}}：需{{item.needNum}}人</text>
+        </view>
+      </view>
+      <view wx:else class="need-empty">已满足所有招募需求</view>
+    </view>
+
+    <!-- 队伍成员列表（使用 memberList，直接包含所有显示信息；队员/队长/指导老师可见） -->
+    <view wx:if="{{canSeeMembers}}" class="member-wrap">
+      <view class="section-title-row">
+        <view class="section-title">队伍成员</view>
+        <view wx:if="{{isCaptain}}" class="add-teacher-btn" bindtap="openAdvisorPicker">＋ 指导老师</view>
+      </view>
+      <view class="member-list">
+        <block wx:for="{{team.memberList}}" wx:key="uid">
+          <view class="member-item {{item.isCaptain ? 'captain-bg' : ''}}">
+            <image class="avatar-box" src="{{item.avatar || '/subPackages/images/user/user.jpg'}}" mode="aspectFill"></image>
+            <view class="member-main">
+              <view class="name-line">
+                <text wx:if="{{item.isCaptain}}" class="cap-tag">队长</text>
+                <text wx:elif="{{item.isTeacher}}" class="teacher-tag">指导老师</text>
+                <text class="username">{{item.nickName}}</text>
+              </view>
+              <text class="skill-desc lv{{item.skillLevel}}">{{item.skillName}}</text>
+            </view>
+            <!-- 成员操作触发点：自己非队长用"退出"图标，其他用"列表/菜单"图标 -->
+            <image class="member-action-icon" catchtap="onMemberItemTap" data-uid="{{item.uid}}"
+                   src="{{item.uid === selfUid && !item.isCaptain ? '/subPackages/images/icon_quub77pigsr/icon_quub77pigsr/logout.svg' : '/subPackages/images/icon_quub77pigsr/icon_quub77pigsr/list-line.svg'}}" />
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <view wx:else class="leader-home-wrap">
+      <!-- 非队员：仅可查看队长主页 -->
+      <view class="section-title">队长主页</view>
+      <view class="leader-card" bindtap="openLeaderHome">
+        <image class="avatar-box" src="{{team.memberList[0].avatar || '/subPackages/images/user/user.jpg'}}" mode="aspectFill"></image>
+        <view class="member-main">
+          <view class="name-line">
+            <text class="cap-tag">队长</text>
+            <text class="username">{{team.memberList[0].nickName}}</text>
+          </view>
+          <text class="skill-desc">点击查看队长主页</text>
+        </view>
+        <text class="leader-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部固定匹配按钮，放到card外面，避免被卡片内边距压缩 -->
+  <!-- 【新增】个人参赛队伍（isPersonal，单人）隐藏入队申请/编辑/匹配入口，退赛走成员浮层"解散小队" -->
+  <view wx:if="{{isCaptain && !team.isPersonal}}" class="fixed-btn-box">
+    <button class="btn-apply" bindtap="openApplyPopup">
+      入队申请
+      <view wx:if="{{applyCount > 0}}" class="apply-entry-badge">{{applyCount}}</view>
+    </button>
+    <button class="btn-edit" bindtap="editTeam">编辑队伍</button>
+    <button wx:if="{{!team.is_matching}}" class="btn-primary" bindtap="openMatch">开启匹配招募</button>
+    <block wx:else>
+      <button class="btn-gray" bindtap="closeMatch">关闭招募</button>
+      <button class="btn-more" bindtap="viewMatchResult">匹配结果</button>
+    </block>
+  </view>
+  
+
+  <!-- 二次确认弹窗 -->
+  <view wx:if="{{showConfirm}}" class="mask-layer" bindtap="closeConfirmPopup">
+    <view class="popup-box" catchtap="">
+      <view class="popup-text">{{confirmText}}</view>
+      <view class="popup-btns">
+        <button class="btn-cancel" bindtap="closeConfirmPopup">取消</button>
+        <button class="btn-danger" bindtap="confirmOperate">确定</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 入队申请弹窗 -->
+  <view wx:if="{{showApplyPopup}}" class="mask-layer" bindtap="closeApplyPopup">
+    <view class="popup-box apply-popup" catchtap="">
+      <!-- 标题栏 + 右上角 X -->
+      <view class="popup-title-row">
+        <view class="popup-title">入队申请（{{applyCount}}）</view>
+        <view class="popup-close" bindtap="closeApplyPopup">×</view>
+      </view>
+      <scroll-view scroll-y class="apply-scroll">
+        <view wx:for="{{applyList}}" wx:key="_id" class="apply-item">
+          <!-- 【改版】上下布局：信息在上，按钮在下 -->
+          <view class="apply-info">
+            <view class="apply-name">{{item.username}}</view>
+            <view class="apply-skill">入队技能：{{item.skillName}}</view>
+          </view>
+          <view class="apply-actions">
+            <button class="apply-btn reject" bindtap="handleApply" data-id="{{item._id}}" data-action="reject">拒绝</button>
+            <button class="apply-btn agree" bindtap="handleApply" data-id="{{item._id}}" data-action="accept">同意</button>
+          </view>
+        </view>
+        <view wx:if="{{applyList.length === 0}}" class="apply-empty">暂无入队申请</view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 成员操作浮层（action sheet，定位到点击图标旁边） -->
+  <view wx:if="{{showActionSheet}}" class="action-mask" bindtap="closeActionSheet">
+    <view class="action-sheet" catchtap="" style="left: {{actionSheetPos.left}}px; top: {{actionSheetPos.top}}px;">
+      <block wx:for="{{actionSheetItems}}" wx:key="key">
+        <view class="action-item {{item.danger ? 'action-danger' : ''}}" bindtap="onActionItemTap" data-key="{{item.key}}">{{item.label}}</view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 成员主页卡片 -->
+  <view wx:if="{{showUserHome}}" class="mask-layer" bindtap="closeUserHome">
+    <view class="user-home-card" catchtap="">
+      <image class="home-avatar" src="{{userHomeInfo.avatar}}" mode="aspectFill"></image>
+      <text class="home-name">{{userHomeInfo.name}}</text>
+      <text class="home-intro" wx:if="{{userHomeInfo.intro}}">{{userHomeInfo.intro}}</text>
+      <text class="home-intro home-intro--empty" wx:else>这个人很懒，什么都没写~</text>
+      <view class="home-skill-wrap">
+        <view class="home-skill-title">技能</view>
+        <view class="home-skill-list">
+          <text wx:for="{{userHomeInfo.skillTagList}}" wx:key="sid" wx:for-item="sk" class="home-skill-tag lv{{sk.level}}">{{sk.name}}</text>
+          <text wx:if="{{userHomeInfo.skillTagList.length === 0}}" class="home-skill-empty">暂无技能</text>
+        </view>
+      </view>
+      <!-- 邮箱（隐私：自己直接显示；队友点"获取邮箱"才拉取，云函数已做同队校验） -->
+      <view class="home-email-wrap">
+        <view class="home-email-title">邮箱</view>
+        <view class="home-email-body">
+          <block wx:if="{{userHomeInfo.email}}">
+            <text class="home-email-val">{{userHomeInfo.email}}</text>
+            <text class="home-email-copy" catchtap="copyHomeEmail">复制</text>
+          </block>
+          <block wx:elif="{{userHomeInfo.isSelf}}">
+            <text class="home-email-empty">（未填写邮箱）</text>
+          </block>
+          <block wx:else>
+            <button class="home-email-btn" catchtap="getContact">获取邮箱</button>
+          </block>
+        </view>
+      </view>
+      <button class="home-close-btn" bindtap="closeUserHome">关闭</button>
+    </view>
+  </view>
+
+  <!-- 添加指导老师弹窗：输入 uid 搜索 → 发送邀请 -->
+  <view wx:if="{{showTeacherPicker}}" class="mask-layer" bindtap="onTeacherMaskTap">
+    <view class="popup-box teacher-picker" catchtap="">
+      <view class="popup-title-row">
+        <view class="popup-title">添加指导老师</view>
+        <view class="popup-close" bindtap="closeAdvisorPicker">×</view>
+      </view>
+      <view class="advisor-search-row">
+        <input class="advisor-search-input" type="text" placeholder="输入指导老师 uid（数字）" value="{{advisorSearchUid}}"
+               bindinput="onAdvisorUidInput" confirm-type="search" bindconfirm="searchAdvisor" />
+        <view class="advisor-search-btn" bindtap="searchAdvisor">{{advisorSearching ? '搜索中' : '搜索'}}</view>
+      </view>
+      <view wx:if="{{advisorSearchResult}}" class="advisor-result">
+        <image class="teacher-avatar" src="{{advisorSearchResult.avatar}}" mode="aspectFill"></image>
+        <view class="teacher-main">
+          <view class="teacher-name">{{advisorSearchResult.username}}（uid：{{advisorSearchResult.uid}}）</view>
+          <text class="teacher-institute" wx:if="{{advisorSearchResult.institute}}">{{advisorSearchResult.institute}}</text>
+        </view>
+        <view class="teacher-invite-btn" bindtap="inviteAdvisor" data-uid="{{advisorSearchResult.uid}}">邀请</view>
+      </view>
+      <view wx:elif="{{!advisorSearching}}" class="advisor-tip">输入老师的 uid 后点击搜索，匹配到老师后发送邀请</view>
+    </view>
+  </view>
+</view>
+
+<view wx:else class="empty-load">
+  <text>加载队伍数据中...</text>
+</view>

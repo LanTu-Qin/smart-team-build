@@ -1,0 +1,76 @@
+<view class="page">
+  <!-- 身份切换 -->
+  <view class="role-switcher">
+    <view 
+      class="role-btn {{role === 'student' ? 'active' : ''}}" 
+      bindtap="switchRole" 
+      data-role="student"
+    >
+      学生
+    </view>
+    <view 
+      class="role-btn {{role === 'teacher' ? 'active' : ''}}" 
+      bindtap="switchRole" 
+      data-role="teacher"
+    >
+      教师
+    </view>
+    <view 
+      class="role-btn {{role === 'admin' ? 'active' : ''}}" 
+      bindtap="switchRole" 
+      data-role="admin"
+    >
+      管理员
+    </view>
+  </view>
+
+  <!-- 绑定表单：所有角色共用字段（uid/username/email/institute），仅第一项 label 按角色切换 -->
+  <view class="form-card">
+    <van-field
+      label="{{role === 'student' ? '学号' : '工号'}}"
+      value="{{uid}}"
+      bind:change="onChange"
+      data-field="uid"
+      placeholder="{{role === 'student' ? '请输入学号' : '请输入工号'}}"
+      type="number"
+      border="{{false}}"
+    />
+    <van-field
+      label="真实姓名"
+      value="{{username}}"
+      bind:change="onChange"
+      data-field="username"
+      placeholder="请输入真实姓名"
+      border="{{false}}"
+    />
+    <van-field
+      label="邮箱"
+      value="{{email}}"
+      bind:change="onChange"
+      data-field="email"
+      placeholder="请输入邮箱（用于队友联系）"
+      type="text"
+      border="{{false}}"
+    />
+    <van-field
+      label="学院"
+      value="{{institute}}"
+      bind:change="onChange"
+      data-field="institute"
+      placeholder="请输入学院名称"
+      border="{{false}}"
+    />
+  </view>
+
+  <!-- 底部按钮 -->
+  <view class="btn-area">
+    <van-button 
+      type="primary" 
+      block 
+      bindtap="submitProfile" 
+      custom-class="submit-btn"
+    >
+      保存并绑定
+    </van-button>
+  </view>
+</view>

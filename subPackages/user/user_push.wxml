@@ -1,0 +1,37 @@
+<view class="page-wrap">
+  <!-- 赛事信息（只读） -->
+  <view class="card">
+    <view class="card-title">进行匹配的赛事</view>
+    <view class="comp-row">
+      <text class="comp-name">{{compName}}</text>
+      <text wx:if="{{compStatus}}" class="comp-status">{{compStatus}}</text>
+    </view>
+    <view class="comp-tip">赛事由赛事详情页选择，不可更改</view>
+  </view>
+
+  <!-- 技能选择（横排多选，等级徽章） -->
+  <view class="card">
+    <view class="card-title">选择参赛技能</view>
+    <view class="skill-tip">选择你想在队伍中担任的技能身份，可多选</view>
+    <view class="skill-grid">
+      <view
+        wx:for="{{skillOptions}}"
+        wx:key="sid"
+        class="skill-item {{item.checked ? 'skill-checked' : ''}}"
+        bindtap="toggleSkill"
+        data-sid="{{item.sid}}"
+      >
+        <text class="skill-name">{{item.name}}</text>
+        <text class="skill-level lv{{item.level}}">Lv.{{item.level}}</text>
+      </view>
+    </view>
+    <view wx:if="{{skillOptions.length === 0}}" class="empty-tip">
+      你还没有可用的技能，请先到个人中心添加技能
+    </view>
+  </view>
+
+  <!-- 底部完成按钮 -->
+  <view class="submit-bar">
+    <button class="submit-btn" bindtap="submitMatch" loading="{{submitting}}">完成</button>
+  </view>
+</view>

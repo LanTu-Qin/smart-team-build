@@ -1,0 +1,133 @@
+<view class="page">
+	<!-- 顶部渐变头部 -->
+	<view class="header">
+		<view class="avatar-wrapper" bindtap="chooseAvatar">
+			<image class="avatar" src="{{avatarPreview || defaultAvatar}}" mode="aspectFill"></image>
+		</view>
+		<view class="header-name" wx:if="{{formData.username}}">{{formData.username}}</view>
+		<view class="header-name header-name--placeholder" wx:else>未设置昵称</view>
+		<view class="header-action" bindtap="chooseAvatar">
+			<van-icon name="photograph" size="22" color="#fff" />
+			<text>更换头像</text>
+		</view>
+	</view>
+
+	<!-- 基本信息 -->
+	<view class="card">
+		<view class="card-title">
+			<view class="title-bar"></view>
+			<text>基本信息</text>
+		</view>
+		<view class="field-row">
+			<text class="field-label">昵称</text>
+			<text class="required">*</text>
+			<input class="field-input" placeholder="请输入昵称" value="{{formData.username}}" bindinput="onInput" data-key="username" maxlength="20" placeholder-class="ph" />
+		</view>
+		<view class="field-divider"></view>
+		<view class="field-row">
+			<text class="field-label">邮箱</text>
+			<text class="required">*</text>
+			<input class="field-input" placeholder="请输入邮箱（用于队友联系）" value="{{formData.email}}" bindinput="onInput" data-key="email" placeholder-class="ph" />
+		</view>
+	</view>
+
+	<!-- 个人简介 -->
+	<view class="card">
+		<view class="card-title">
+			<view class="title-bar"></view>
+			<text>个人简介</text>
+			<text class="counter">{{formData.introduction.length}}/200</text>
+		</view>
+		<textarea
+			class="intro-textarea"
+			placeholder="介绍一下你的技术栈、项目经验等，AI 会根据简介对技能进行智能评级~"
+			value="{{formData.introduction}}"
+			bindinput="onInput"
+			data-key="introduction"
+			maxlength="200"
+			auto-height
+			placeholder-class="ph"
+		/>
+	</view>
+
+	<!-- 我的技能 -->
+	<view class="card">
+		<view class="card-title">
+			<view class="title-bar"></view>
+			<text>我的技能</text>
+			<text class="counter">已选 {{selectedSkills.length}} 项</text>
+		</view>
+		<!-- <view class="skill-tip">
+			<view class="skill-tip-dot"></view>
+			<text>点击标签选择技能，长按已选项可查看描述</text>
+		</view> -->
+		<view class="skill-grid">
+			<view
+				wx:for="{{allSkills}}"
+				wx:key="sid"
+				class="skill-chip {{selectedSkillMap[item.sid] ? 'skill-chip--active' : ''}}"
+				bindtap="toggleSkill"
+				data-sid="{{item.sid}}"
+			>
+				{{item.name}}
+			</view>
+		</view>
+	</view>
+
+	<!-- 已选技能列表（点击查看描述） -->
+	<view class="card" wx:if="{{selectedSkills.length > 0}}">
+		<view class="card-title">
+			<view class="title-bar"></view>
+			<text>已选技能</text>
+			<text class="counter">点击查看详情</text>
+		</view>
+		<view class="selected-list">
+			<view
+				class="selected-item"
+				wx:for="{{selectedSkills}}"
+				wx:key="*this"
+				bindtap="onSkillTagTap"
+				data-sid="{{item}}"
+			>
+				<view class="selected-icon {{skill_rating[item] >= 5 ? 'selected-icon--glow' : ''}}">
+					<van-icon name="medal-o" size="36" color="{{ratingColor[skill_rating[item]] || '#C0C4CC'}}" />
+				</view>
+				<view class="selected-info">
+					<view class="selected-name">{{skillsMap[item].name}}</view>
+					<view class="selected-desc">{{skillsMap[item].desc || '点击查看技能详情'}}</view>
+				</view>
+				<view class="selected-arrow">
+					<van-icon name="arrow" size="22" color="#C0C4CC" />
+				</view>
+			</view>
+		</view>
+	</view>
+
+	<view class="page-bottom"></view>
+</view>
+
+<!-- 底部固定保存按钮 -->
+<view class="footer">
+	<button class="save-btn" bindtap="submitForm" disabled="{{submitting}}" loading="{{submitting}}">
+		{{submitting ? '保存中…' : '保存信息'}}
+	</button>
+</view>
+
+<!-- 技能描述弹窗（用 wx:if 控制挂载，避免遮罩拦截下方点击） -->
+<van-popup
+	wx:if="{{showSkillDesc}}"
+	show="{{showSkillDesc}}"
+	position="bottom"
+	round
+	bind:close="onPopupClose"
+>
+	<view class="popup-content" wx:if="{{currentDescSkill}}">
+		<view class="popup-handle"></view>
+		<view class="popup-icon">
+			<van-icon name="medal-o" size="64" color="{{ratingColor[skill_rating[currentDescSkill.sid]] || '#4F8CFF'}}" />
+		</view>
+		<view class="popup-title">{{currentDescSkill.name}}</view>
+		<view class="popup-desc">{{currentDescSkill.desc || '该技能暂无详细描述'}}</view>
+		<view class="popup-btn" bindtap="onPopupClose">我知道了</view>
+	</view>
+</van-popup>

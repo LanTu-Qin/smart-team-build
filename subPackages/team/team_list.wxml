@@ -1,0 +1,188 @@
+<view class="container">
+  <!-- 搜索栏 -->
+  <view class="search-wrap">
+    <van-icon name="search" class="search-icon" />
+    <input
+      class="search-input"
+      placeholder="请输入赛事/队伍名称"
+      placeholder-class="search-placeholder"
+      value="{{searchKey}}"
+      confirm-type="search"
+      bindinput="onSearchInput"
+      bindconfirm="onSearchInput"
+    />
+    <view wx:if="{{searchKey}}" class="search-clear" catchtap="clearSearch">
+      <van-icon name="cross" class="search-clear-icon" />
+    </view>
+  </view>
+  <!-- ========== 新增：从"开始匹配"进入时显示悬浮"匹配结果"按钮 ========== -->
+  <view wx:if="{{isMatch}}" class="match-result-bar" bindtap="openMatchResult">
+    <view>匹配结果</view>
+  </view>
+  <!-- ========== 标签栏（下拉展开式） ==========
+       收起态：单行展示「全部」+ 当前选中赛事 + 右侧箭头（点击展开）
+       展开态：保留头部，下方多行换行展示全部赛事标签
+       单选：点选标签后自动收起；再次点击已选标签则取消选择（恢复全部） -->
+  <view class="tag-dropdown">
+    <!-- 头部：标签 + 箭头（始终可见，无包裹容器，避免 iOS overflow 容器渲染异常） -->
+    <view class="tag-header">
+      <view
+        class="tag-item {{allSelected ? 'tag-active' : ''}}"
+        bindtap="onTagTap"
+        data-cid="all"
+      >全部</view>
+      <view
+        hidden="{{allSelected || !selectedTag}}"
+        class="tag-item tag-active"
+        bindtap="onTagTap"
+        data-cid="{{selectedTag ? selectedTag.cid : ''}}"
+      >{{selectedTag ? selectedTag.name : ''}}</view>
+      <!-- 箭头：收起态向下（v），展开态向上（^），点击切换 -->
+      <view
+        class="tag-arrow {{tagExpanded ? 'arrow-up' : 'arrow-down'}}"
+        bindtap="toggleTagExpand"
+      >
+        <view class="arrow-chevron"></view>
+      </view>
+    </view>
+    <!-- 展开态：全部赛事标签（多行换行，默认最多 4 行，超出的用"展开全部"查看）
+         iOS 稳定性要点：外层 tag-panel 用 hidden 控制显隐（不销毁节点），
+         内层 tag-expanded-wrap 只负责换行和高度裁剪。 -->
+    <view hidden="{{!tagExpanded}}" class="tag-panel">
+      <view class="tag-expanded-wrap {{tagShowAll ? 'tag-expanded-all' : 'tag-expanded-clamp'}}">
+        <view
+          class="tag-item {{item.isActive ? 'tag-active' : ''}}"
+          wx:for="{{allTagList}}"
+          wx:key="cid"
+          bindtap="onTagTap"
+          data-cid="{{item.cid}}"
+        >{{item.name}}</view>
+      </view>
+      <!-- 标签较多时显示"展开全部/收起"切换条 -->
+      <view
+        class="tag-more-bar"
+        hidden="{{allTagList.length <= 8}}"
+        bindtap="toggleTagShowAll"
+      >{{tagShowAll ? '收起' : '展开全部(' + allTagList.length + ')'}}</view>
+    </view>
+  </view>
+  <!-- 赛事分组队伍列表 -->
+  <view class="comp-group" wx:for="{{compTeamList}}" wx:key="cid" wx:for-item="comp">
+    <view class="comp-title">{{comp.compName}}</view>
+    <view class="team-list">
+      <view class="team-item" wx:for="{{comp.teams}}" wx:key="tid" wx:for-item="team" bindtap="goTeamInfo" data-tid="{{team.tid}}">
+        <view class="team-name">{{team.name}}</view>
+        <!-- 技能/定位信息展示 -->
+        <view class="team-info">
+          <!-- 已有定位 -->
+          <view class="skill-have">
+            <text class="label">已有定位：</text>
+            <text wx:for="{{team.skillHaveList}}" wx:key="skillId" wx:for-item="item" style="margin-right:10rpx;">
+              {{item.skillName}}({{item.count}}人)
+            </text>
+          </view>
+          <!-- 缺失定位 -->
+          <view class="skill-missing">
+            <text class="label">缺失定位：</text>
+            <text wx:for="{{team.skillMissingList}}" wx:key="skillId" wx:for-item="item" style="margin-right:10rpx;">
+              {{item.skillName}}(缺{{item.count}}人)
+            </text>
+            <text wx:if="{{team.skillMissingList.length === 0}}">无</text>
+          </view>
+          <!-- 加入条件 -->
+          <view class="condition">
+            <text wx:if="{{team.condition === 0}}">条件：无限制</text>
+            <text wx:elif="{{team.condition === 1}}">条件：需要审核</text>
+            <text wx:elif="{{team.condition === 2}}">条件：仅主动邀请</text>
+            <text wx:else>条件：无限制</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+  <!-- 匹配推荐弹窗 -->
+  <view class="popup-mask" wx:if="{{showMatchPopup}}" bindtap="closeMatchPopup">
+    <view class="popup-content" catchtap="">
+      <view class="popup-title">{{matchType === 'user' ? '匹配到的队伍' : '匹配推荐'}}</view>
+      <view wx:if="{{matchLoading}}" class="match-loading">加载中...</view>
+      <scroll-view wx:else class="popup-tag-scroll" scroll-y="true">
+        <view class="match-list">
+          <!-- 个人模式：匹配到的队伍卡片 -->
+          <block wx:if="{{matchType === 'user'}}">
+            <view class="match-team-item" wx:for="{{matchList}}" wx:key="tid" bindtap="matchItemTap" data-type="team" data-index="{{index}}">
+              <view class="match-team-header">
+                <text class="match-team-name">{{item.name}}</text>
+                <text class="match-team-matching" wx:if="{{item.is_matching}}">招募中</text>
+              </view>
+              <view class="match-team-row" wx:if="{{item.compNamesText}}">
+                <text class="match-team-label">参赛赛事</text>
+                <text class="match-team-value ellipsis">{{item.compNamesText}}</text>
+              </view>
+              <view class="match-team-row">
+                <text class="match-team-label">队长</text>
+                <text class="match-team-value">{{item.leaderName}}</text>
+              </view>
+              <view class="match-team-row" wx:if="{{item.intro}}">
+                <text class="match-team-label">简介</text>
+                <text class="match-team-value ellipsis">{{item.intro}}</text>
+              </view>
+              <view class="match-team-row">
+                <text class="match-team-label">缺人</text>
+                <view class="match-team-missing">
+                  <text wx:for="{{item.team_missing}}" wx:key="sid" class="match-skill">{{item.name}}(缺{{item.count}}人)</text>
+                  <text wx:if="{{item.team_missing.length === 0}}" class="match-team-nomissing">无</text>
+                </view>
+              </view>
+              <view class="match-team-row">
+                <text class="match-team-label">入队条件</text>
+                <text class="match-team-value">{{item.conditionText}}</text>
+              </view>
+              <view class="match-team-tip">点击卡片加入 / 申请入队</view>
+            </view>
+          </block>
+          <!-- 队伍模式：匹配到的个人卡片 -->
+          <block wx:else>
+            <view class="match-item" wx:for="{{matchList}}" wx:key="uid" bindtap="matchItemTap" data-type="user" data-index="{{index}}">
+              <image class="match-avatar" src="{{item.avatar}}" mode="aspectFill"></image>
+              <view class="match-info">
+                <view class="match-name">{{item.username}}</view>
+                <view class="match-intro" wx:if="{{item.introduction}}">{{item.introduction}}</view>
+                <view class="match-skills">
+                  <text wx:for="{{item.matchSkills}}" wx:key="sid" class="match-skill lv{{item.level}}" style="margin-right:10rpx;">{{item.name}}</text>
+                </view>
+                <!-- 邮箱（匹配场景：请求方是本队成员即可，云函数 getContact 已校验） -->
+                <view class="match-email-wrap">
+                  <block wx:if="{{item.email}}">
+                    <text class="match-email-val">{{item.email}}</text>
+                    <text class="match-email-copy" catchtap="copyMatchEmail" data-uid="{{item.uid}}">复制</text>
+                  </block>
+                  <button wx:else class="match-email-btn" catchtap="getMatchContact" data-uid="{{item.uid}}">获取邮箱</button>
+                </view>
+              </view>
+            </view>
+          </block>
+          <view wx:if="{{matchList.length === 0}}" class="match-empty">暂无匹配推荐</view>
+        </view>
+      </scroll-view>
+      <view class="popup-close" bindtap="closeMatchPopup">关闭</view>
+    </view>
+  </view>
+
+  <!-- 操作确认弹窗（邀请 / 加入 / 申请） -->
+  <view class="popup-mask" wx:if="{{showActionPopup}}" bindtap="closeActionPopup">
+    <view class="popup-content action-popup" catchtap="">
+      <view class="popup-title">{{actionTitle}}</view>
+      <view class="action-desc">{{actionDesc}}</view>
+      <block wx:if="{{actionSkills.length > 1}}">
+        <view class="action-skill-label">选择技能</view>
+        <view class="action-skills">
+          <text wx:for="{{actionSkills}}" wx:key="sid" class="action-skill {{item.sid === actionSkillId ? 'active' : ''}}" data-sid="{{item.sid}}" catchtap="selectActionSkill">{{item.name}}</text>
+        </view>
+      </block>
+      <view class="action-btns">
+        <button class="action-btn action-cancel" bindtap="closeActionPopup">取消</button>
+        <button class="action-btn action-confirm" bindtap="confirmAction">确认</button>
+      </view>
+    </view>
+  </view>
+</view>

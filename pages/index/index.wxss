@@ -1,0 +1,274 @@
+.page-container {
+  padding-bottom: 140rpx; /* 关键：内容底部留出空间，不被导航栏挡住 */
+}
+/* 轮播容器 */
+.swiper {
+  width: 100%;
+  height: 260rpx; /* 保持你之前的高度 */
+  overflow: hidden; /* 超出部分隐藏，实现裁剪 */
+}
+
+/* 轮播图片 */
+.banner {
+  width: 200%; /* 图片放大，让左右超出容器，只留中间 */
+  height: 120%;
+  margin-left: -50%; /* 向左偏移，把中间部分移到容器内 */
+  object-fit: cover; /* 保证图片不变形，填满容器 */
+  object-position: center; /* 聚焦图片中心 */
+}
+
+/* 标题 */
+.title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin: 30rpx;
+}
+
+/* 列表 */
+.list {
+  padding: 0 20rpx;
+}
+.item {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.08);
+}
+
+/* 标题+等级 布局 */
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start; /* 标题换行时，标签始终靠上 */
+  margin-bottom: 20rpx;
+}
+.item-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  flex: 1; /* 标题占满剩余空间，自动换行 */
+  margin-right: 20rpx; /* 和标签保持间距 */
+}
+.item-level {
+  font-size: 24rpx;
+  color: #fff;
+  background: #409eff;
+  padding: 6rpx 12rpx;
+  border-radius: 6rpx;
+  flex-shrink: 0; /* 禁止标签被压缩 */
+}
+
+/* 信息行 */
+.item-info {
+  font-size: 26rpx;
+  color: #666;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+/* 时间 */
+.item-time {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 20rpx;
+}
+
+/* 按钮 */
+.btn {
+  width: 100%;
+  background: #409eff;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 8rpx;
+}
+/* 新增：管理赛事悬浮按钮 */
+.manage-btn {
+  position: fixed;
+  bottom: 150rpx;
+  right: 50rpx;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #409eff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(64, 158, 255, 0.4);
+  z-index: 99;
+}
+.manage-btn text {
+  color: #fff;
+  font-size: 24rpx;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* 底部导航栏 */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 120rpx;
+  background: #fcfcfc;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1rpx solid #eee;
+  box-sizing: border-box;
+  padding: 0 20rpx;
+  z-index: 99;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: #333;
+}
+
+/* 未读红点 */
+.tab-label {
+  position: relative;
+  display: inline-block;
+}
+.tab-dot {
+  position: absolute;
+  top: -8rpx;
+  right: -16rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #E85C5C;
+  border: 2rpx solid #fff;
+  box-sizing: content-box;
+}
+
+/* 给页面内容加底部内边距，避免被导航栏挡住 */
+.container {
+  padding-bottom: 140rpx;
+}
+
+/* ========== 折叠筛选 ========== */
+.filter-panel {
+  background: #fff;
+  margin: 0 20rpx 20rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.filter-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+.filter-arrow {
+  font-size: 28rpx;
+  color: #999;
+  transition: transform 0.25s ease;
+}
+.filter-arrow.arrow-open {
+  transform: rotate(180deg);
+}
+.filter-body {
+  padding: 16rpx 28rpx 24rpx;
+  max-height: 600rpx;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+}
+.filter-body.filter-collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.filter-group {
+  margin-top: 12rpx;
+}
+.filter-group-label {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 10rpx;
+}
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+.filter-tag {
+  padding: 8rpx 22rpx;
+  border-radius: 24rpx;
+  background: #f5f7fa;
+  color: #666;
+  font-size: 24rpx;
+  border: 1rpx solid transparent;
+  transition: all 0.2s;
+}
+.filter-tag.tag-active {
+  background: #ecf5ff;
+  color: #409eff;
+  border-color: #409eff;
+}
+
+/* ========== 等级徽章颜色（按 levelKey 动态） ========== */
+.item-level.level-national-a {
+  background: #409eff;
+  color: #fff;
+}
+.item-level.level-national-b {
+  background: #7c5cff;
+  color: #fff;
+}
+.item-level.level-province-a {
+  background: #e6a23c;
+  color: #fff;
+}
+.item-level.level-province-b {
+  background: #67c23a;
+  color: #fff;
+}
+.item-level.level-other {
+  background: #909399;
+  color: #fff;
+}
+
+/* ========== 状态徽章（背景色 + 文字色，按 statusKey） ========== */
+.status-tag {
+  display: inline-block;
+  padding: 4rpx 18rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+.status-tag.status-ongoing {
+  background: #e8f5e9;
+  color: #1fa760;
+}
+.status-tag.status-upcoming {
+  background: #fff4e6;
+  color: #e6a23c;
+}
+.status-tag.status-ended {
+  background: #f2f2f2;
+  color: #909399;
+}
+.status-tag.status-other {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+/* ========== 筛选后空结果提示 ========== */
+.empty-tip {
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+  padding: 60rpx 0;
+}

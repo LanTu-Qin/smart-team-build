@@ -1,0 +1,55 @@
+<view class="container">
+  <!-- 固定在顶部的管理员栏 -->
+  <view class="admin-header">
+    <image class="admin-avatar" src="/subPackages/images/admin/admin.jpg" mode="aspectFill"></image>
+    <view class="admin-title">管理员</view>
+    <view class="header-actions">
+      <button size="mini" class="header-btn" bindtap="goUserAdmin">用户授权</button>
+      <button size="mini" class="header-btn" bindtap="batchAiGen" disabled="{{generating}}">批量AI生成</button>
+    </view>
+  </view>
+
+  <!-- 赛事列表（加了顶部内边距，防止被挡住） -->
+  <view class="list">
+    <view class="item" wx:for="{{list}}" wx:key="cid">
+      <view class="item-name">{{item.name}}</view>
+      <view class="item-info">
+        {{item.level}} | {{item.type}} | {{item.status}}
+      </view>
+      <view class="item-btns">
+        <button size="mini" bindtap="editItem" data-cid="{{item.cid}}">编辑</button>
+        <button size="mini" bindtap="aiGenDetail" data-cid="{{item.cid}}" disabled="{{generating}}">AI生成</button>
+        <button size="mini" type="warn" bindtap="deleteItem" data-cid="{{item.cid}}">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 右下角悬浮添加按钮 -->
+  <view class="add-btn" bindtap="showAddModal">
+    <text>+</text>
+  </view>
+
+  <!-- 添加/编辑弹窗 -->
+  <view class="mask" wx:if="{{showModal}}">
+    <view class="modal">
+      <input placeholder="赛事名称" value="{{form.name}}" data-key="name" bindinput="setForm" />
+      <picker bindchange="setLevel" value="{{levelIndex}}" range="{{levels}}">
+        <view class="picker">{{form.level || '选择等级'}}</view>
+      </picker>
+      <input placeholder="参赛方式" value="{{form.type}}" data-key="type" bindinput="setForm" />
+      <input placeholder="状态" value="{{form.status}}" data-key="status" bindinput="setForm" />
+      <input placeholder="开始时间" value="{{form.start}}" data-key="start" bindinput="setForm" />
+      <input placeholder="结束时间" value="{{form.end}}" data-key="end" bindinput="setForm" />
+      <!-- <input placeholder="海报路径" value="{{form.poster}}" data-key="poster" bindinput="setForm" /> -->
+      <view class="img-upload">
+        <button bindtap="chooseImg" size="mini" type="default">选择海报图片</button>
+        <image wx:if="{{tempImagePath}}" src="{{tempImagePath}}" mode="aspectFill" style="width:100rpx;height:100rpx;margin-left:10rpx;"></image>
+      </view>
+      <input placeholder="链接" value="{{form.url}}" data-key="url" bindinput="setForm" />
+      <view class="modal-btns">
+        <button bindtap="hideModal" size="mini">取消</button>
+        <button bindtap="saveItem" type="primary" size="mini">保存</button>
+      </view>
+    </view>
+  </view>
+</view>

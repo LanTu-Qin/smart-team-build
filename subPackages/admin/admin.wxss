@@ -1,0 +1,135 @@
+.container {
+  /* 重置 app.wxss 全局 .container 的 flex 布局（display:flex + space-between），
+     否则剩余空间会被均匀分配到子元素之间，造成随内容减少而增大的空白 */
+  display: block;
+  height: auto;
+  width: 100%;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+/* 固定在顶部的管理员栏 */
+.admin-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 120rpx; /* 固定高度 */
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+  display: flex;
+  align-items: center; /* 头像和文字中线对齐 */
+  /* padding: 0 30rpx; */
+  z-index: 100; /* 保证在最上层 */
+}
+.admin-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+}
+.admin-title {
+  font-size: 34rpx;
+  font-weight: bold;
+}
+/* 顶部右侧操作按钮（用户授权 / 批量AI生成） */
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  margin-right: 20rpx;
+}
+.header-btn {
+  margin-left: 12rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
+.header-btn[disabled] {
+  opacity: 0.7;
+  color: #4f7cff;
+  background: rgba(79, 124, 255, 0.1);
+}
+
+/* 赛事列表：加顶部内边距，防止被固定栏挡住 */
+.list {
+  padding: 0rpx 20rpx 150rpx;
+}
+.item {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+}
+.item-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  margin-bottom: 12rpx;
+}
+.item-info {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 20rpx;
+}
+.item-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20rpx;
+}
+
+/* 右下角悬浮添加按钮 */
+.add-btn {
+  position: fixed;
+  bottom: 50rpx;
+  right: 50rpx;
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: #409eff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(64, 158, 255, 0.4);
+  z-index: 100;
+}
+.add-btn text {
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: bold;
+}
+
+/* 弹窗样式 */
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal {
+  background: #fff;
+  width: 80%;
+  padding: 30rpx;
+  border-radius: 16rpx;
+}
+input {
+  border: 1rpx solid #eee;
+  padding: 16rpx;
+  margin-bottom: 20rpx;
+  border-radius: 8rpx;
+}
+.picker {
+  border: 1rpx solid #eee;
+  padding: 16rpx;
+  margin-bottom: 20rpx;
+  border-radius: 8rpx;
+}
+.modal-btns {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}

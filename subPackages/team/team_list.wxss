@@ -1,0 +1,547 @@
+page {
+  background: #f5f5f5;
+}
+.container {
+  /* 重置 app.wxss 全局 .container 的 flex 布局（display:flex + space-between），
+     否则剩余空间会被均匀分配到子元素之间，造成随内容减少而增大的空白 */
+  display: block;
+  height: auto;
+  min-height: 100vh;
+  padding: 20rpx 20rpx 140rpx;
+  box-sizing: border-box;
+  /* max-width: 750rpx; */
+  margin: 0 auto;
+}
+
+/* 赛事分组 */
+.comp-group {
+  margin-bottom: 30rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
+  width: 98%; /* 和 container 的 max-width 保持一致 */
+  margin: 0 auto 30rpx; /* 水平居中 */
+}
+/* 3. 队伍项（team-item）内边距可以根据需求调整 */
+.team-item {
+  padding: 25rpx 30rpx; /* 左右内边距保持不变，文字不会贴边 */
+  border-bottom: 1rpx solid #eee;
+}
+.comp-title {
+  padding: 30rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  background: #fafafa;
+  border-bottom: 1rpx solid #eee;
+  /* 修复：长赛事名（含特殊符号、英文括号）会作为单 token 不换行撑爆卡片；
+     改为自动换行 + break-all 处理超长单词/符号，整体更可读。 */
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* 队伍列表 */
+.team-list {
+  padding: 0 30rpx;
+}
+.team-item {
+  padding: 25rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+.team-item:last-child {
+  border-bottom: none;
+}
+.team-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+.team-info {
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+.skill-have, .skill-missing {
+  margin-bottom: 4rpx;
+}
+.label {
+  color: #333;
+  font-weight: 500;
+}
+.condition {
+  margin-top: 4rpx;
+  color: #999;
+}
+
+/* "匹配结果"悬浮按钮（从"开始匹配"进入时显示，仿赛事管理 FAB） */
+.match-result-bar {
+  position: fixed;
+  right: 24rpx;
+  bottom: 60rpx;
+  width: 110rpx;
+  height: 110rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #007aff, #5b8cff);
+  color: #fff;
+  font-size: 26rpx;
+  line-height: 1.2;
+  text-align: center;
+  border-radius: 50%;
+  box-shadow: 0 6rpx 20rpx rgba(0, 122, 255, 0.4);
+  z-index: 99;
+  box-sizing: border-box;
+}
+.match-result-bar:active {
+  transform: scale(0.95);
+  opacity: 0.9;
+}
+
+/* 搜索栏样式 */
+.search-wrap {
+  display: flex;
+  align-items: center;
+  background: #f4f5f7;
+  border-radius: 36rpx;
+  padding: 0 24rpx;
+  width: 670rpx;
+  height: 72rpx;
+  margin-bottom: 20rpx;
+  border: 2rpx solid transparent;
+  transition: border-color 0.2s;
+}
+.search-wrap.search-wrap-focus {
+  border-color: #007aff;
+  background: #fff;
+}
+.search-icon {
+  font-size: 30rpx;
+  color: #8a8e99;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+}
+.search-input {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  font-size: 28rpx;
+  color: #1f2329;
+  line-height: 1;
+  padding: 0;
+}
+.search-placeholder {
+  color: #c0c4cc;
+  font-size: 28rpx;
+}
+/* 清空按钮 */
+.search-clear {
+  flex-shrink: 0;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #c8ccd4;
+  border-radius: 50%;
+}
+.search-clear-icon {
+  font-size: 22rpx;
+  color: #fff;
+}
+.search-clear:active {
+  opacity: 0.7;
+}
+/* ========== 标签栏（下拉展开） ==========
+   收起态：单行展示「全部」+ 选中标签 + 右侧箭头
+   展开态：下方多行换行展示全部赛事
+   iOS 真机稳定性要点：
+   - 头部直接用 flex 平铺，无 overflow 包裹容器（iOS WKWebView 对 overflow
+     容器在 setData 后高度计算异常，会产生上下空隙）
+   - 标签高度用固定 height + flex 居中，不依赖 line-height 行高计算
+   - 标签间距用 margin-right，不用 gap（iOS 对 flex gap 支持不稳定） */
+.tag-dropdown {
+  width: 100%;
+  margin: 0 0 16rpx;
+  /* iOS 真机防护：显式定位上下文 + 最小高度，防止 setData 重排时
+     整个标签栏被渲染到后续兄弟节点（卡片列表）下方 */
+  position: relative;
+  z-index: 2;
+  min-height: 56rpx;
+}
+.tag-header {
+  display: flex;
+  align-items: center;
+  padding: 0 20rpx;
+  min-height: 56rpx;
+}
+.tag-header .tag-item {
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+/* 选中标签过长时允许收缩截断，避免撑破布局。
+   注意：不要加 max-width——iOS WKWebView 对 flex 容器内
+   max-width 子项 + wx:if/hidden 切换的组合有渲染异常（会把整个
+   标签栏推到下方卡片之后），ellipsis 依赖 flex-shrink 即可生效。 */
+.tag-header .tag-item.tag-active {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56rpx;
+  padding: 0 28rpx;
+  font-size: 26rpx;
+  color: #666;
+  background: #f0f0f0;
+  border-radius: 40rpx;
+  box-sizing: border-box;
+  /* 只过渡颜色属性，避免在 setData 后触发不必要的过渡计算。 */
+  transition: background-color 0.2s, color 0.2s;
+}
+/* 展开区里：长赛事名加省略号，避免单标签过宽 */
+.tag-expanded-wrap .tag-item {
+  max-width: 380rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 修改为更高优先级的选择器 */
+.tag-item.tag-active {
+  background: #007aff;
+  color: #fff;
+}
+.tag-arrow {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.arrow-chevron {
+  width: 18rpx;
+  height: 18rpx;
+  border-right: 4rpx solid #666;
+  border-bottom: 4rpx solid #666;
+  transform: rotate(45deg);
+  transition: transform 0.25s ease;
+}
+/* 展开态箭头向上：旋转 -135° 让 chevron 指向 ↑ */
+.tag-arrow.arrow-up .arrow-chevron {
+  transform: rotate(-135deg);
+}
+/* 展开面板：外层 tag-panel 负责显隐（hidden，不销毁节点） */
+.tag-panel {
+  position: relative;
+}
+.tag-expanded-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 12rpx 20rpx 4rpx;
+}
+/* 间距用 margin 代替 gap：iOS 对 flex gap 支持不稳定，
+   且 margin 方便精确计算 4 行的裁剪高度 */
+.tag-expanded-wrap .tag-item {
+  margin: 0 20rpx 20rpx 0;
+}
+/* 默认收起态：最多显示 4 行。
+   高度 = 上内边距12 + 4行标签(4×56) + 3行间距(3×20) + 下内边距4 = 300rpx */
+.tag-expanded-clamp {
+  max-height: 300rpx;
+  overflow: hidden;
+}
+/* 展开全部：解除高度限制 */
+.tag-expanded-all {
+  max-height: none;
+}
+/* "展开全部 / 收起"切换条 */
+.tag-more-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  font-size: 24rpx;
+  color: #007aff;
+}
+.tag-more-bar:active {
+  opacity: 0.7;
+}
+/* 通用弹窗样式（匹配推荐/操作确认弹窗复用） */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 999;
+}
+.popup-content {
+  background: #fff;
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 30rpx 30rpx 0 0;
+  padding: 30rpx 20rpx 40rpx;
+  box-sizing: border-box;
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.popup-title {
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  margin-bottom: 30rpx;
+  /* 修复：长赛事名（含「+」、引号、英文括号）作为单 token 不换行撑爆弹窗。
+     强制 break-all 处理超长 token。 */
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+/* 匹配推荐列表样式 */.popup-close {
+  text-align: center;
+  margin-top: 30rpx;
+  padding: 20rpx;
+  background: #f5f5f5;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+  color: #999;
+}
+/* 匹配推荐列表样式 */
+.match-loading {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+.match-list {
+  padding: 20rpx 0;
+}
+.match-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+.match-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+  background-color: #eee;
+}
+.match-info {
+  flex: 1;
+}
+.match-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  margin-bottom: 6rpx;
+}
+.match-skills {
+  font-size: 26rpx;
+  color: #666;
+}
+/* 匹配技能等级染色（与队伍成员页一致） */
+.match-skill {
+  font-size: 24rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 24rpx;
+  background: #F2F4F7;
+  color: #9CA3AF;
+  display: inline-block;
+}
+.match-skill.lv0 { background: #F2F4F7; color: #9CA3AF; }
+.match-skill.lv1 { background: #F3F4F6; color: #6B7280; }
+.match-skill.lv2 { background: #E8F1FF; color: #4F8CFF; }
+.match-skill.lv3 { background: #F3EEFF; color: #8B5CF6; }
+.match-skill.lv4 { background: #FFF6E6; color: #D97706; }
+.match-skill.lv5 { background: #FDECEC; color: #EF4444; }
+/* 匹配卡片邮箱区块 */
+.match-email-wrap {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex-wrap: wrap;
+}
+.match-email-val {
+  font-size: 24rpx;
+  color: #007aff;
+  word-break: break-all;
+  min-width: 0;
+  flex: 1;
+}
+.match-email-copy {
+  font-size: 22rpx;
+  color: #999;
+  flex-shrink: 0;
+}
+.match-email-btn {
+  width: 160rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  font-size: 24rpx;
+  color: #fff;
+  background: #007aff;
+  border: none;
+  border-radius: 28rpx;
+  padding: 0;
+  text-align: center;
+}
+.match-email-btn::after { border: none; }
+.match-email-btn:active { opacity: 0.85; }
+.match-empty {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+/* 个人模式：匹配到的队伍卡片 */
+.match-team-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+.match-team-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12rpx;
+}
+.match-team-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.match-team-matching {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  font-size: 22rpx;
+  color: #D97706;
+  background: #FFF6E6;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+.match-team-row {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+.match-team-label {
+  flex-shrink: 0;
+  width: 110rpx;
+  color: #999;
+}
+.match-team-value {
+  flex: 1;
+  min-width: 0;
+  color: #333;
+}
+.match-team-missing {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+.match-team-nomissing {
+  color: #999;
+}
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 个人卡片：简介 */
+.match-intro {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+/* 队伍卡片：点击提示 */
+.match-team-tip {
+  margin-top: 14rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #4a90d9;
+  background: #eef5ff;
+  padding: 8rpx 0;
+  border-radius: 8rpx;
+}
+/* 操作确认弹窗 */
+.action-popup {
+  padding: 40rpx 32rpx 32rpx;
+}
+.action-desc {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.6;
+  margin-top: 24rpx;
+}
+.action-skill-label {
+  font-size: 26rpx;
+  color: #999;
+  margin-top: 24rpx;
+}
+.action-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+.action-skill {
+  padding: 10rpx 28rpx;
+  border-radius: 32rpx;
+  background: #f3f4f6;
+  color: #555;
+  font-size: 26rpx;
+}
+.action-skill.active {
+  background: #4a90d9;
+  color: #fff;
+}
+.action-btns {
+  display: flex;
+  margin-top: 36rpx;
+}
+.action-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  padding: 0;
+}
+.action-btn::after { border: none; }
+.action-cancel {
+  background: #f3f4f6;
+  color: #666;
+  margin-right: 24rpx;
+}
+.action-confirm {
+  background: #4a90d9;
+  color: #fff;
+}

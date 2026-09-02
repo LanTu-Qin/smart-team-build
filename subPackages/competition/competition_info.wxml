@@ -1,0 +1,154 @@
+<view class="page-wrap" wx:if="{{!loading}}">
+  <view wx:if="{{!detail}}" class="empty-tip">未查询到该竞赛信息</view>
+  <block wx:else>
+    <!-- 顶部基础信息卡片 -->
+    <view class="info-card">
+      <view class="title-wrap">
+        <text class="title">{{detail.name || detail.title}}</text>
+        <!-- 状态标识 -->
+        <text class="status-badge {{detail.status === '报名中' ? 'badge-ing' : 'badge-end'}}">{{detail.status}}</text>
+      </view>
+
+      <!-- 参赛方式 + 时间行 -->
+      <!-- 参赛方式 -->
+      <view class="info-row">
+        <view class="label">参赛方式</view>
+        <!-- 根据 type 动态匹配不同颜色标签 -->
+        <text class="type-tag {{detail.type === '个人' ? 'tag-individual' : detail.type === '团体' ? 'tag-team' : 'tag-mixed'}}">{{detail.type === '个人' ? '个人赛' : detail.type === '团体' ? '团队赛' : '个人/团队'}}</text>
+      </view>
+
+      <view class="divider"></view>
+
+      <!-- 时间信息（拆分成了上下两行显示） -->
+      <view class="time-row-block">
+        <view class="info-row">
+          <text class="label">报名时间</text>
+          <text class="value">{{detail.start}} ~ {{detail.end}}</text>
+        </view>
+        <view class="info-row">
+          <text class="label">比赛开赛</text>
+          <text class="value">{{detail.end}}</text>
+        </view>
+      </view>
+
+      <!-- 官网入口 -->
+      <view class="url-row" bindtap="goWebsite" wx:if="{{detail.url}}">
+        <text class="label">官方网站</text>
+        <view class="url-box">
+          <text class="url-text">{{detail.url}}</text>
+          <text class="arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 海报区域（保持不变） -->
+    <view class="poster-card">
+      <view class="card-title">赛事海报</view>
+      <image wx:if="{{posterUrl}}" class="poster-img" src="{{posterUrl}}" mode="aspectFill"></image>
+      <view wx:else class="empty-poster">暂无海报图片</view>
+    </view>
+
+    <!-- 竞赛详情卡片 -->
+    <view class="desc-card">
+      <!-- <view class="card-title">📄 竞赛简介</view> -->
+      <view wx:for="{{detailLines}}" wx:key="index" class="line-item line-{{item.type}}">
+        <text wx:if="{{item.type === 'title'}}" class="line-title">{{item.text}}</text>
+        <view wx:elif="{{item.type === 'label'}}" class="line-label">
+          <text class="label-name">{{item.label}}：</text>
+          <text class="label-text">{{item.text}}</text>
+        </view>
+        <text wx:elif="{{item.type === 'list'}}" class="line-list">• {{item.text}}</text>
+        <text wx:else class="line-text">{{item.text}}</text>
+      </view>
+      <view wx:if="{{detailLines.length === 0}}" class="empty-tip-small">暂无详情</view>
+    </view>
+
+    <!-- 赛事含金量卡片（原备赛模块复用，仅修改标题） -->
+    <view class="desc-card" wx:if="{{suggestLines.length > 0}}">
+      <!-- <view class="card-title">🏆 赛事含金量</view> -->
+      <view wx:for="{{suggestLines}}" wx:key="index" class="line-item line-{{item.type}}">
+        <text wx:if="{{item.type === 'title'}}" class="line-title">{{item.text}}</text>
+        <view wx:elif="{{item.type === 'label'}}" class="line-label">
+          <text class="label-name">{{item.label}}：</text>
+          <text class="label-text">{{item.text}}</text>
+        </view>
+        <text wx:elif="{{item.type === 'list'}}" class="line-list">• {{item.text}}</text>
+        <text wx:else class="line-text">{{item.text}}</text>
+      </view>
+    </view>
+
+    <!-- 管理员：AI生成/刷新详情 -->
+    <view class="ai-gen-wrap" wx:if="{{isAdmin}}">
+      <button class="ai-gen-btn" bindtap="regenerateDetail" disabled="{{aiGenerating}}">
+        {{aiGenerating ? 'AI生成中...' : 'AI生成 / 刷新详情'}}
+      </button>
+      <view class="ai-gen-tip">详情内容由 AI 生成，可在「赛事管理」后台一键批量生成</view>
+    </view>
+
+    <!-- 底部固定操作按钮：按参赛模式分流（团体：发布队伍+匹配 / 个人：个人参赛 / 混合：参赛弹窗选模式） -->
+    <view class="submit-btn-wrap">
+      <!-- 团体赛：发布队伍 + 匹配 -->
+      <block wx:if="{{signMode === 'team'}}">
+        <view class="btn-item btn-team {{detail.status === '已结束' ? 'btn-disabled' : ''}}" bindtap="goSign">
+          <view class="sign-text">发布队伍</view>
+        </view>
+        <view class="btn-item btn-match {{detail.status === '已结束' ? 'btn-disabled' : ''}}" bindtap="goMatch">
+          <view class="sign-text">匹配</view>
+        </view>
+      </block>
+      <!-- 个人赛：仅个人参赛 -->
+      <block wx:elif="{{signMode === 'personal'}}">
+        <view class="btn-item btn-personal {{detail.status === '已结束' ? 'btn-disabled' : ''}}" bindtap="goPersonalSign">
+          <view class="sign-text">个人参赛</view>
+        </view>
+      </block>
+      <!-- 个人/团队混合赛：参赛 → 弹窗选模式 -->
+      <block wx:else>
+        <view class="btn-item btn-personal {{detail.status === '已结束' ? 'btn-disabled' : ''}}" bindtap="openSignModePopup">
+          <view class="sign-text">参赛</view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 【新增】混合赛事：参赛模式选择弹窗 -->
+    <view wx:if="{{showSignModePopup}}" class="mask-layer" bindtap="closeSignModePopup">
+      <view class="popup-box sign-mode-popup" catchtap="">
+        <view class="popup-title-row">
+          <view class="popup-title">选择参赛模式</view>
+          <view class="popup-close" bindtap="closeSignModePopup">×</view>
+        </view>
+        <view class="sign-mode-option" bindtap="choosePersonalFromPopup">
+          <view class="mode-title">个人参赛</view>
+          <view class="mode-desc">个人报名参赛，无需组队</view>
+        </view>
+        <view class="sign-mode-option" bindtap="chooseTeamSign">
+          <view class="mode-title">发布队伍</view>
+          <view class="mode-desc">创建队伍并招募队友</view>
+        </view>
+        <view class="sign-mode-option" bindtap="chooseTeamMatch">
+          <view class="mode-title">匹配组队</view>
+          <view class="mode-desc">进入个人匹配，寻找合适队伍</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 【新增】个人参赛：技能选择弹窗 -->
+    <view wx:if="{{showPersonalSignPopup}}" class="mask-layer" bindtap="closePersonalSignPopup">
+      <view class="popup-box personal-sign-popup" catchtap="">
+        <view class="popup-title-row">
+          <view class="popup-title">个人参赛</view>
+          <view class="popup-close" bindtap="closePersonalSignPopup">×</view>
+        </view>
+        <view class="personal-sign-tip">选择参赛技能，将以单人队伍形式报名「{{detail.name || detail.title}}」</view>
+        <picker mode="selector" range="{{personalSkillOptions}}" range-key="name" value="{{personalSkillIndex}}" bindchange="onPersonalSkillChange">
+          <view class="personal-skill-picker">
+            <text class="personal-skill-name">{{personalSkillOptions[personalSkillIndex].name}}</text>
+            <text class="personal-skill-arrow">›</text>
+          </view>
+        </picker>
+        <button class="personal-sign-btn" bindtap="submitPersonalSign" loading="{{personalSigning}}">确认参赛</button>
+      </view>
+    </view>
+  </block>
+</view>
+<view class="loading-wrap" wx:else>数据加载中...</view>

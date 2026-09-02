@@ -1,0 +1,9 @@
+{
+  "name": "requestApi",
+  "version": "1.0.0",
+  "description": "入队邀请/申请中心",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
