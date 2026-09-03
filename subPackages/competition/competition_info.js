@@ -72,13 +72,18 @@ Page({
       })
       this.updateDetailContent(target)
 
-      // 海报逻辑不变
+      // 海报：若该赛事已带临时链接（首页 getBanner 或本页拉取后已回写）→ 直接复用，不再重复转换；
+      // 否则若存有海报 fileID → 拉取转换；两者都没有 → 显示"暂无海报"占位
       if (target.posterUrl) {
         this.setData({
           posterUrl: target.posterUrl
         })
-      } else {
+      } else if (target.poster) {
         await this.getSinglePoster(cid)
+      } else {
+        this.setData({
+          posterUrl: ''
+        })
       }
     } catch (err) {
       console.error('页面加载失败：', err)
@@ -126,7 +131,8 @@ Page({
       this.setData({ aiGenerating: false })
     }
   },
-  // 获取单赛事海报
+  // 获取单赛事海报（poster fileID → 临时链接）
+  // 成功后把临时链接回写 store 列表缓存：下次进入详情时直接复用，避免重复调用转换
   async getSinglePoster(cid) {
     const res = await wx.cloud.callFunction({
       name: 'competitionApi',
@@ -141,8 +147,13 @@ Page({
     if (res.result.code === 0 && res.result.data.length) {
       const url = res.result.data[0].posterUrl
       if (url) {
+        // 回写全局缓存（与 store/competition.getBanner 一致，便于再次进入直接命中）
+        const list = store.competition.getList()
+        const item = list.find(it => Number(it.cid) === Number(cid))
+        if (item) item.posterUrl = url
+        // 直接使用临时链接，不追加 ?t= 等参数，避免破坏链接签名导致加载失败
         this.setData({
-          posterUrl: `${url}?t=${Date.now()}`
+          posterUrl: url
         })
       }
     }
@@ -448,7 +459,11 @@ Page({
   // 下拉刷新重新拉取数据
   async onPullDownRefresh() {
     await store.competition.loadCompetition()
-    await this.getSinglePoster(this.data.cid)
+    // loadCompetition 后 store 列表为数据库原始数据（回写的 posterUrl 已清空），
+    // 该赛事仍有海报 fileID 时重新拉取临时链接，无海报则保持占位
+    if (this.data.detail && this.data.detail.poster) {
+      await this.getSinglePoster(this.data.cid)
+    }
     wx.stopPullDownRefresh()
   }
 })

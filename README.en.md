@@ -153,3 +153,47 @@ Cloud functions read the Xunfei MaaS credentials from **environment variables** 
 | v0.2 | 2026-08-28 | Permission hardening (`ensureAdmin`), AI output normalization, matching-pool sync fixes |
 | v0.3 | 2026-08-29 | Advisor module, solo participation mode, competition status check, uid uniqueness check |
 | v0.4 | 2026-08-30 | Recruiting-hall filtering, team-list blank fix, iOS compatibility, profile page UX improvements |
+
+## 11. UI Screenshots
+
+Screenshots below map one-to-one to the feature modules described above:
+
+### 11.1 Competition Hall (Home)
+
+![Competition Hall (Home)](docs/images/image.png)
+
+### 11.2 Invitations / Applications Feed
+
+![Invitations / Applications feed](docs/images/image-1.png)
+
+### 11.3 Create a Team
+
+![Create-team form](docs/images/image-2.png)
+
+### 11.4 Team Recruiting Hall
+
+![Team recruiting hall](docs/images/image-3.png)
+
+### 11.5 Competition Management (Admin Console)
+
+![Admin competition management](docs/images/image-4.png)
+
+### 11.6 Personal Center
+
+![Personal center](docs/images/image-5.png)
+
+### 11.7 Edit Profile
+
+![Edit-profile page](docs/images/image-6.png)
+
+### 11.8 Team Detail
+
+![Team detail](docs/images/image-7.png)
+
+### 11.9 Intelligent Matching: User Matches a Team
+
+![User matched with a team successfully](docs/images/image-8.png)
+
+### 11.10 Intelligent Matching: Team Finds Teammates
+
+![Team matched with teammates successfully](docs/images/image-9.png)
