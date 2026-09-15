@@ -97,7 +97,7 @@
 | `matching_poolApi` | 匹配池 | `enterPool` `exitPool` `getMatchList` `getMyPool` |
 | `competitionApi` | 赛事管理 + AI 生成 | `getAll` `create` `update` `delete` `aiGenDetail` `wordToHtml` `getFileTempUrl`（写操作需管理员） |
 | `getFileUrl` | fileID 批量换临时链接 | — |
-| `skill_add` / `skill_getAll` | 技能字典新增 / 查询 | — |
+| `skillApi` | 技能字典 | `getAll` `add` `update` `delete`（写操作需管理员；`delete` 前做 4 处引用检查，有引用拦截、不级联） |
 
 统一返回约定：`{ code, msg, data }`（`0` 成功 / `-99` 未知 action / `-403` 无权限 / `-500` 服务器异常）。
 

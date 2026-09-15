@@ -30,6 +30,17 @@ exports.main = async (event, context) => {
         res = await compService.getAll()
         return { code: 0, data: res, msg: 'success' }
 
+      // 分页列表（管理端）：params { page, pageSize, keyword, status }
+      case 'getPage':
+        res = await compService.getPage(params || {})
+        return { code: 0, data: res, msg: 'success' }
+
+      // 按 cid 查单条赛事（管理端详情）
+      case 'getByCid':
+        res = await compService.getByCid(params.cid)
+        if (!res) return { code: -404, msg: '赛事不存在' }
+        return { code: 0, data: res, msg: 'success' }
+
       case 'create':
         if (!(await ensureAdmin())) return { code: -403, msg: '无管理员权限' }
         const newCid = await compService.create(params)
@@ -68,6 +79,13 @@ exports.main = async (event, context) => {
     }
   } catch (err) {
     console.error('competitionApi error:', err)
-    return { code: -500, msg: '服务器异常', error: err.message }
+    // status=400 是 service 层抛出的"参数校验失败"（白名单 / 必填 / 长度 / 日期）:
+    // 属于客户端用错，把 msg 原样回给前端，别埋进"服务器异常"里让用户看不懂
+    const isBadRequest = err && err.status === 400
+    return {
+      code: isBadRequest ? -400 : -500,
+      msg: isBadRequest ? err.message : '服务器异常',
+      error: err.message,
+    }
   }
 }

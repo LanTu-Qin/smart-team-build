@@ -10,6 +10,76 @@ cloud.init({
 const db = cloud.database()
 const ENV_PREFIX = '636c-cloud1-d8gb9nir3847ec081-1444113575' // 请根据实际环境修改
 
+// ============================================================================
+// compInfo 写入白名单（安全项，对齐 Web 管理端契约第 8 节第 8 条）
+// ----------------------------------------------------------------------------
+// 【历史问题】create / update 直接 `...compInfo` 整体透传写库，客户端可塞任意字段，
+// 甚至覆盖 cid / poster / detailPoster / detailImageList / content 等关键字段。
+// 管理端编辑页 form = 整条记录 item（`this.setData({ form: item })`），等于把整行
+// 原样回写：一旦有人构造请求带 cid，就能把 A 赛事改成 B 的 cid，或直接篡改 content。
+//
+// 【修法】服务端按白名单**挑字段**，服务端独占字段一律不接收；写库顺序保证
+// 服务端字段（cid / poster / …）永远覆盖客户端传值。
+//
+// 【为什么枚举不硬校验】C 端管理页的 type / status 是自由输入框（见 admin.wxml），
+// level 取值里还有 "认定国B"，硬拒绝会打断现网小程序 —— 这里只做白名单 + 必填 +
+// 长度 + 日期先后；枚举收紧建议先收敛 C 端表单为 picker 再上线。
+// ============================================================================
+const COMP_EDITABLE_FIELDS = [
+  'name', 'url', 'level', 'type', 'status', 'start', 'end', 'organizer'
+]
+// 服务端独占字段：客户端传了也一律丢弃（只在日志里留痕，便于发现异常调用）
+const COMP_SERVER_FIELDS = [
+  'cid', 'content', 'poster', 'detailPoster', 'detailImageList', '_id', '_openid'
+]
+const COMP_MAX_LEN = {
+  name: 40, url: 300, organizer: 30, level: 10, type: 10, status: 10, start: 20, end: 20
+}
+
+/** 参数错误：带 status=400，让 index.js 能区分"客户端传错"与"服务器崩了" */
+function badRequest(message) {
+  const err = new Error(message)
+  err.status = 400
+  return err
+}
+
+/** 白名单挑字段：trim 字符串、丢弃其余字段（含 cid / content / poster / …） */
+function pickCompFields(compInfo = {}) {
+  if (!compInfo || typeof compInfo !== 'object') throw badRequest('compInfo 格式不正确')
+  const picked = {}
+  COMP_EDITABLE_FIELDS.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(compInfo, key)) return
+    const val = compInfo[key]
+    if (val === undefined) return
+    picked[key] = typeof val === 'string' ? val.trim() : val
+  })
+  const smuggled = COMP_SERVER_FIELDS.filter((key) =>
+    Object.prototype.hasOwnProperty.call(compInfo, key),
+  )
+  if (smuggled.length) console.warn('[competitionApi] 已丢弃非白名单字段：', smuggled.join(', '))
+  return picked
+}
+
+/**
+ * compInfo 校验
+ * @param {object} data pickCompFields 的结果
+ * @param {boolean} partial true=update（未传字段不校验），false=create（name 必填）
+ */
+function assertCompData(data, { partial = false } = {}) {
+  if (!partial && !data.name) throw badRequest('请填写赛事名称')
+  if (partial && 'name' in data && !data.name) throw badRequest('赛事名称不能为空')
+  Object.keys(data).forEach((key) => {
+    const max = COMP_MAX_LEN[key]
+    if (max && String(data[key]).length > max) {
+      throw badRequest(`${key} 超出长度限制（最多 ${max} 个字符）`)
+    }
+  })
+  if (data.start && data.end && String(data.end) < String(data.start)) {
+    throw badRequest('结束日期不能早于开始日期')
+  }
+  return data
+}
+
 // 修正讯飞MaaS接口地址 v1，http协议
 // 密钥/模型已改为从云开发控制台环境变量读取（云函数→配置→环境变量），
 // 需在控制台配置 AI_API_KEY 与 AI_MODEL_ID 后重新部署本函数；
@@ -70,6 +140,36 @@ class CompetitionService {
     return res.data
   }
 
+  // ---------- 分页查询（管理端列表：keyword 模糊匹配 name + status 筛选） ----------
+  // 返回 { list, total, page, pageSize }，对齐 Web 管理端契约 GET /competitions
+  async getPage(params = {}) {
+    const page = Math.max(1, parseInt(params.page, 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(params.pageSize, 10) || 20))
+    const kw = String(params.keyword || '').trim()
+    const status = String(params.status || '').trim()
+
+    const where = {}
+    if (kw) {
+      // 用户名/赛事名模糊：正则特殊字符转义，不区分大小写
+      where.name = db.RegExp({ regexp: kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), options: 'i' })
+    }
+    if (status) where.status = status
+
+    const countRes = await this.collection.where(where).count()
+    const res = await this.collection.where(where)
+      .orderBy('cid', 'asc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get()
+    return { list: res.data, total: countRes.total, page, pageSize }
+  }
+
+  // ---------- 按 cid 查单条赛事（管理端详情） ----------
+  async getByCid(cid) {
+    const res = await this.collection.where({ cid: Number(cid) }).get()
+    return res.data[0] || null
+  }
+
   // ---------- 创建（含图片上传） ----------
   async create(params) {
     console.log("创建中，imageBase64 长度:", params.imageBase64?.length || 0);
@@ -98,10 +198,14 @@ class CompetitionService {
       }
     }
 
+    // 白名单挑字段 + 校验：compInfo 里混进来的 cid / content / poster 等一律不落库
+    const data = assertCompData(pickCompFields(compInfo))
+
     const insertData = {
-      ...compInfo,
-      cid,
-      poster,
+      ...data,
+      cid, // 服务端自增主键，写在最后：客户端即便传了 cid 也覆盖不了
+      poster, // 文件通道独占：只能由 uploadFile 产出的 fileID 写入
+      content: '', // AI 简介：只能由 POST /competitions/:cid/ai-detail 写入
       detailPoster: '', // 预留 Word 字段
       detailImageList: []
     }
@@ -117,12 +221,16 @@ class CompetitionService {
       compInfo,
       imageBase64
     } = params
-    const updateData = {
-      ...compInfo
-    }
+    // cid 只取路由/入参主体，compInfo 里的 cid 由 pickCompFields 丢弃，
+    // 杜绝"改 A 却把 cid 改成 B，整行覆盖掉另一条赛事"
+    const targetCid = Number(cid)
+    if (!Number.isInteger(targetCid)) throw badRequest('cid 不合法，必须为数字')
+
+    // partial=true：只更新实际传来的白名单字段；content / detailPoster / detailImageList 永不被本接口改写
+    const updateData = assertCompData(pickCompFields(compInfo), { partial: true })
     // 改用 cid 作为目录，避免 name 含 + " 等特殊字符导致 cloudPath 非法
-    const imageCloudPath = `competition/comp_${cid}/image/poster.jpg`
-    console.log("更新中，cid:", cid, 'cloudPath:', imageCloudPath);
+    const imageCloudPath = `competition/comp_${targetCid}/image/poster.jpg`
+    console.log("更新中，cid:", targetCid, 'cloudPath:', imageCloudPath);
     if (imageBase64 && imageBase64.trim() !== '') {
       console.log("收到图片，长度:", imageBase64.length);
       // try-catch 保护：uploadFile 失败时不要把 poster 覆盖成空（保留原值）
@@ -143,7 +251,7 @@ class CompetitionService {
     }
     delete updateData._id
     await this.collection.where({
-      cid
+      cid: targetCid
     }).update({
       data: updateData
     })
@@ -153,8 +261,10 @@ class CompetitionService {
   // ---------- 删除 ----------
   async delete(cid) {
     console.log("删除中");
+    const targetCid = Number(cid)
+    if (!Number.isInteger(targetCid)) throw badRequest('cid 不合法，必须为数字')
     const info = await this.collection.where({
-      cid
+      cid: targetCid
     }).get()
     if (info.data.length) {
       const item = info.data[0]
@@ -167,7 +277,7 @@ class CompetitionService {
       })
     }
     await this.collection.where({
-      cid
+      cid: targetCid
     }).remove()
     return true
   }
@@ -245,10 +355,12 @@ class CompetitionService {
    * @returns {String} 生成后的content文本
    */
   async aiGenerateDetail(cid, name, url) {
-    // 查询原赛事
-    console.log("【云端Debug】接收到 cid 类型:", typeof cid, "值为:", cid); 
+    // 查询原赛事（契约：cid 必须为数字，统一 Number 化，避免 "1" 查不到 1）
+    const targetCid = Number(cid)
+    if (!Number.isInteger(targetCid)) throw badRequest('cid 不合法，必须为数字')
+    console.log("【云端Debug】接收到 cid 类型:", typeof cid, "值为:", cid);
     const targetRes = await this.collection.where({
-      cid
+      cid: targetCid
     }).get()
     console.log(targetRes);
     if (!targetRes.data.length) {
@@ -260,7 +372,7 @@ class CompetitionService {
     const finalContent = this.#normalizeAiContent(content)
     // 更新数据库content字段
     await this.collection.where({
-      cid
+      cid: targetCid
     }).update({
       data: {
         content: finalContent

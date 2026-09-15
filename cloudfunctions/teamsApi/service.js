@@ -7,6 +7,43 @@ const $ = db.command.aggregate
 // 【新增】同时参赛数量上限（用户 onGoing_cid 最大长度）
 const MAX_ONGOING_CID = 5
 
+// ============================================================================
+// teams.update 写入白名单（与 competitionApi 的 compInfo 白名单同一类安全项）
+// ----------------------------------------------------------------------------
+// 【历史问题】update 直接 `{ ...newInfo }` 整体写库：客户端可改写 tid / members /
+// leader / advisor / team_missing / isPersonal 等服务端维护字段（members 一旦被改
+// 写，成员关系、onGoing_cid 拦截、tid_list 全部会失真）。
+// 【修法】只挑"队长期望能编辑"的字段；team_missing 永远由 calcTeamMissing 重算，
+// cid_list 走 setTeamCidList 联动（保持原有行为）。
+// ============================================================================
+const TEAM_EDITABLE_FIELDS = [
+  'name', 'intro', 'maxNum', 'condition', 'team_needs', 'is_matching'
+]
+// cid_list 不在此列：它属于"改了就要联动全体成员 onGoing_cid"的特殊字段，
+// 由 update() 内部走 setTeamCidList 处理，其余服务端字段一律丢弃
+const TEAM_SERVER_FIELDS = [
+  'tid', 'members', 'leader', 'advisor', 'team_missing', 'isPersonal', 'createdAt'
+]
+
+/** 白名单挑字段（cid_list 单独保留给 setTeamCidList 做联动更新） */
+function pickTeamFields(newInfo = {}) {
+  if (!newInfo || typeof newInfo !== 'object') throw new Error('newInfo 格式不正确')
+  const picked = {}
+  TEAM_EDITABLE_FIELDS.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(newInfo, key)) return
+    const val = newInfo[key]
+    if (val === undefined) return
+    picked[key] = typeof val === 'string' ? val.trim() : val
+  })
+  // cid_list 例外放行：update() 会把它转给 setTeamCidList 做成员联动，不直接写库
+  if (Array.isArray(newInfo.cid_list)) picked.cid_list = newInfo.cid_list
+  const smuggled = TEAM_SERVER_FIELDS.filter((key) =>
+    Object.prototype.hasOwnProperty.call(newInfo, key),
+  )
+  if (smuggled.length) console.warn('[teamsApi] 已丢弃非白名单字段：', smuggled.join(', '))
+  return picked
+}
+
 class TeamsService {
   constructor() {
     this.collection = db.collection('teams')
@@ -35,6 +72,29 @@ class TeamsService {
   async getList() {
     const res = await this.collection.get()
     return res.data
+  }
+
+  /**
+   * 分页查询团队（管理端列表）：cid 筛选 + 分页
+   * 返回 { list, total, page, pageSize }，对齐 Web 管理端契约 GET /teams
+   */
+  async getPage(params = {}) {
+    const page = Math.max(1, parseInt(params.page, 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(params.pageSize, 10) || 20))
+    const cid = params.cid
+
+    const where = {}
+    if (cid !== undefined && cid !== null && cid !== '') {
+      where.cid_list = _.elemMatch(_.eq(Number(cid)))
+    }
+
+    const countRes = await this.collection.where(where).count()
+    const res = await this.collection.where(where)
+      .orderBy('tid', 'asc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get()
+    return { list: res.data, total: countRes.total, page, pageSize }
   }
 
   /**
@@ -631,7 +691,8 @@ class TeamsService {
   async update(tid, newInfo) {
     const team = await this.getByTid(tid);
     if (!team) throw new Error('队伍不存在');
-    const updateData = { ...newInfo };
+    // 白名单挑字段：tid / members / leader / advisor / team_missing / isPersonal 一律不接受
+    const updateData = pickTeamFields(newInfo);
     // 【新增】编辑时变更赛事列表：走 setTeamCidList 同步全体成员 onGoing_cid，避免重复参赛拦截失效
     if (Array.isArray(updateData.cid_list)) {
       const oldList = team.cid_list || [];
@@ -642,9 +703,9 @@ class TeamsService {
       }
       delete updateData.cid_list; // cid_list 已由 setTeamCidList 更新
     }
-    // 如果更新了 team_needs，重新计算 team_missing
-    if (newInfo.team_needs) {
-      const tempTeam = { ...team, team_needs: newInfo.team_needs };
+    // 如果更新了 team_needs，重新计算 team_missing（永远由服务端算，不接受客户端传值）
+    if (updateData.team_needs) {
+      const tempTeam = { ...team, team_needs: updateData.team_needs };
       updateData.team_missing = this.calcTeamMissing(tempTeam);
     }
     await this.collection.where({ tid }).update({ data: updateData });

@@ -73,6 +73,13 @@ exports.main = async (event, context) => {
         return {
           code: 0, data: res, msg: 'success'
         }
+      // 分页查询用户（仅管理员，管理端列表）：params { page, pageSize, keyword, role }
+      case 'getPage':
+        if (!(await ensureAdmin())) return { code: -403, msg: '无管理员权限' }
+        res = await userService.getPage(params || {})
+        return {
+          code: 0, data: res, msg: 'success'
+        }
       // 设置匹配状态
       case 'setMatch':
         await userService.setMatch(params.uid, params.isMatch)

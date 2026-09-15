@@ -97,7 +97,7 @@ Main dependencies: `@vant/weapp` (UI), `axios` (AI calls inside cloud functions)
 | `matching_poolApi` | Matching pool | `enterPool` `exitPool` `getMatchList` `getMyPool` |
 | `competitionApi` | Competition management + AI generation | `getAll` `create` `update` `delete` `aiGenDetail` `wordToHtml` `getFileTempUrl` (writes require admin) |
 | `getFileUrl` | Convert fileIDs to temp links | — |
-| `skill_add` / `skill_getAll` | Skill dictionary insert / query | — |
+| `skillApi` | Skill dictionary | `getAll` `add` `update` `delete` (writes require admin; `delete` runs a 4-place reference check and refuses instead of cascading) |
 
 Unified response: `{ code, msg, data }` (`0` success / `-99` unknown action / `-403` forbidden / `-500` server error).
 

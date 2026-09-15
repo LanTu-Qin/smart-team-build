@@ -555,5 +555,49 @@ class UserService {
       return copy
     })
   }
+
+  /**
+   * 分页查询用户（管理端列表），对齐 Web 管理端契约 GET /users
+   * - keyword 纯数字 → userInfo.uid 精确匹配；否则 → 用户名模糊（不区分大小写）
+   * - role 精确筛选（student/teacher/admin）
+   * - 返回 { list, total, page, pageSize }；列表脱敏：不下发 email
+   */
+  async getPage(params = {}) {
+    const page = Math.max(1, parseInt(params.page, 10) || 1)
+    const pageSize = Math.min(100, Math.max(1, parseInt(params.pageSize, 10) || 20))
+    const kw = String(params.keyword || '').trim()
+    const role = String(params.role || '').trim()
+
+    const where = {}
+    if (kw) {
+      if (/^\d+$/.test(kw)) {
+        where['userInfo.uid'] = Number(kw)
+      } else {
+        where['userInfo.username'] = db.RegExp({
+          regexp: kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          options: 'i'
+        })
+      }
+    }
+    if (role) where.role = role
+
+    const countRes = await this.collection.where(where).count()
+    const res = await this.collection.where(where)
+      .orderBy('userInfo.uid', 'asc')
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .get()
+
+    // 隐私保护：列表不下发 email（手机号本就不落库）
+    const list = res.data.map(item => {
+      const copy = Object.assign({}, item)
+      if (copy.userInfo) {
+        copy.userInfo = Object.assign({}, copy.userInfo)
+        delete copy.userInfo.email
+      }
+      return copy
+    })
+    return { list, total: countRes.total, page, pageSize }
+  }
 }
 module.exports = new UserService()
