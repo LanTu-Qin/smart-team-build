@@ -102,10 +102,15 @@ Page({
     }
     try {
       const uid = userState.userInfo.uid
-      const [userRes, captainRes] = await Promise.all([
+      // 刻意不用数组解构：swc 会把它降级成 _sliced_to_array，而该 helper 内部
+      // require('@swc/runtime/_array_with_holes.js') —— 这个文件在部分开发者工具版本下不会被生成，
+      // 结果页面一加载就崩（与 store/index.js 里 ...args 那个坑同源）。
+      const results = await Promise.all([
         wx.cloud.callFunction({ name: 'requestApi', data: { action: 'getByUser', params: { uid } } }),
         wx.cloud.callFunction({ name: 'requestApi', data: { action: 'getByCaptain', params: { uid } } })
       ])
+      const userRes = results[0]
+      const captainRes = results[1]
       const personalCount = (userRes.result && userRes.result.code === 0) ? (userRes.result.data || []).length : 0
       const capData = (captainRes.result && captainRes.result.code === 0) ? (captainRes.result.data || {}) : {}
       const captainCount = (capData.invitesSent || []).length + (capData.appliesReceived || []).length

@@ -145,6 +145,43 @@
 - **已知未实现**：`userApi.setMatch`、`userApi.deleteUser` 路由已声明但 service 层未实现，调用返回 `-500`（不影响现有业务）。
 - **环境变量**：密钥已迁移至云开发控制台，请勿在代码中提交明文 `AI_API_KEY`。
 
+### 9.1 开发者工具坑：`@swc/runtime` helper 缺失（已踩两次）
+
+**症状**：页面白屏，控制台报
+
+```
+module '@swc/runtime/_array_with_holes.js' is not defined, require args is './_array_with_holes.js'
+```
+
+下一次可能换成 `_array_without_holes.js` / `_object_spread.js` / `_non_iterable_spread.js` —— **名字会变，本质一样**。
+
+**根因**：开发者工具的「ES6 转 ES5」链路由 SWC 承担，降级时它会在编译产物里写入 `require('./_xxx.js')`，
+但某些工具版本（如 `2.02.2608060`）**不会生成这些 helper 文件** → 页面一加载就崩。
+**这不是业务代码的 bug**：缺的不是某一个 helper，而是整条 helper 注入链路。
+
+**排查顺序（从便宜到贵，别跳步）**
+
+1. **清缓存 + 重开工具**：工具 → 清缓存 → 全部清除 → 关闭并重开项目。
+   （本项目两次都是这一步就好了 —— 所以先做它，别急着改代码）
+2. **关掉 ES5 降级**：`project.config.json` → `setting.es6: false`（不降级就不需要 helper）。
+   代价：真机需要较新的 JS 运行时。lib 2.33 原生支持 ES6+，近年机型无影响，老旧机型有风险 ——
+   属**一行就能改回**的开关，不是不可逆决定。
+3. **换开发者工具版本**：以上都无效说明是编译器自身 bug，换最新稳定版或回退一版。
+
+**同时建议规避的语法**（会拉起 helper，能少用就少用；但**不要**为了"防御"无差别改写）
+
+| 写法 | 会拉起 | 替代写法 |
+| --- | --- | --- |
+| `const [a, b] = await Promise.all([...])`（数组解构） | `_array_with_holes` | `const r = await …; const a = r[0]` |
+| `function f(...args)`（剩余参数） | `_array_with_holes` | `.call(this, a, b)` 显式传参（见 `store/index.js` 的改法） |
+| `[...arr]`（数组展开） | `_array_without_holes` | `arr.slice()` / `[].concat(arr)` |
+| `push(...arr)`（调用展开） | `_to_consumable_array` | `arr.forEach(x => list.push(x))` |
+| `{ ...obj }`（对象展开） | `_object_spread` | `Object.assign({}, obj)` |
+
+> 判断口径：**先按 1 → 2 → 3 处理**；只有在放着不管会持续崩、且上面三步都无效时，才动语法。
+> 本项目的对象展开（`{ ...item }`）在多个页面与 `miniprogram_npm/@vant` 中大量使用，无差别替换会让改动面失控。
+
+
 ## 10. 版本记录
 
 | 版本 | 日期 | 里程碑 |

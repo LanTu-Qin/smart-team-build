@@ -6,8 +6,8 @@
   "appid": "wxf60da1805ba7ff3e",
   "setting": {
     "enhance": true,
-    "es6": true,
-    "minified": true,
+    "es6": false,
+    "minified": false,
     "postcss": true
   },
   "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
