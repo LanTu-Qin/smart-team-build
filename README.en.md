@@ -145,6 +145,73 @@ Cloud functions read the Xunfei MaaS credentials from **environment variables** 
 - **Known stubs**: `userApi.setMatch` and `userApi.deleteUser` are routed but not implemented in the service layer (return `-500`, do not affect current features).
 - **Secrets**: credentials live in the cloud console as env vars; never commit a plaintext `AI_API_KEY`.
 
+### 9.1 DevTools Pitfall: Missing `@swc/runtime` Helpers (hit three times)
+
+**Symptom**: blank page, console reports
+
+```
+module '@swc/runtime/_array_with_holes.js' is not defined, require args is './_array_with_holes.js'
+```
+
+The helper name may change (`_array_without_holes.js`, `_object_spread.js`, `_non_iterable_spread.js`) — the root cause is the same.
+
+**Cause**: the DevTools "ES6 → ES5" downleveling is done by SWC, which emits `require('./_xxx.js')` in its output, but some tool versions (e.g. `2.02.2608060`) **do not generate those helper files**, so the page crashes on load. This is **not a bug in business code** — the whole helper-injection chain is missing.
+
+**Two independent triggers found on 2026-09-20** (downgrading the base library from `3.16.1` to `2.33.0` did **not** help):
+
+1. A rest parameter in `store/index.js` (`async function (...args)`) — SWC downlevels it to
+   `var args = new Array(arguments.length)`, which creates array holes and pulls in `_array_with_holes`.
+   Fixed by using explicit parameters: `function (name, desc)`.
+2. Vant's build output under `miniprogram_npm/@vant/weapp` contains equivalent patterns
+   (e.g. `Array(n)` and `__spreadArray([], …)` in `datetime-picker/index.js`). With `enhance` or `minified`
+   enabled, the built npm package can reference the missing helper.
+
+**Final fix**: remove the rest parameter **+** disable `enhance`/`minified` **+** delete `miniprogram_npm` and run "Build npm" again.
+
+**Troubleshooting order (cheapest first)**:
+
+1. **Clear cache & restart**: Tools → Clear Cache → All → close and reopen the project.
+2. **Disable ES5 downleveling**: `project.config.json` → `setting.es6: false`. lib 2.33 supports ES6+ natively.
+3. **Switch DevTools version**: if both fail, the compiler itself is buggy — use the latest stable build or roll back one.
+
+> Switching the base library version is **ineffective** for this issue (`3.16.1` and `2.33.0` behave identically).
+
+### 9.2 Cloud Function Pitfall: `cloud.init()` Must Run Before `require('./service')`
+
+**Symptom**: calling the function returns
+
+```
+Error: errCode: -504002 functions execute fail | errMsg: 145 code exit unexpected
+```
+
+The function log contains **no business-code frames at all** — only the platform runtime (`/data/scf/frame/node16/runtime.js`) — with `InitFunction: 0ms / Duration: 0ms / MemUsage: 0.00MB`, meaning not a single line of user code ran.
+
+**Cause**: `skillApi/index.js` originally required the service before initializing the SDK:
+
+```js
+const cloud = require('wx-server-sdk')
+const skillService = require('./service')   // ← not initialized yet
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+```
+
+`service.js` exports `new SkillService()` at the top level, and the constructor immediately calls `cloud.database()`. Accessing the database before `init` throws, so the **module load itself fails** and the process exits during init.
+
+**Fix** (same convention as `teamsApi` in this project):
+
+1. In `index.js`: call `cloud.init()` **before** `require('./service')`;
+2. In `service.js`: call `cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })` **itself**, so it no longer depends on require order.
+
+**A different symptom that looks similar**:
+
+```
+TypeError: Cannot read properties of undefined (reading 'toString')
+    at writeRuntimeFile (/data/scf/frame/node16/runtime.js:65:37)
+```
+
+That means the **deployed package itself is broken** (empty package / missing `index.js`), not an init-order problem. Delete the function in the Cloud Console → re-run "Upload and Deploy: Cloud Install Dependencies". The package should contain `index.js`, `service.js`, `package.json`, `config.json`.
+
+> After deploying, run a **cloud test** first (`{"action":"getAll"}`) and confirm it returns `{"code":0,...}` before triggering from the Mini Program — this avoids mistaking "deployment failed" for "code bug".
+
 ## 10. Version History
 
 | Version | Date | Milestone |
@@ -153,6 +220,7 @@ Cloud functions read the Xunfei MaaS credentials from **environment variables** 
 | v0.2 | 2026-08-28 | Permission hardening (`ensureAdmin`), AI output normalization, matching-pool sync fixes |
 | v0.3 | 2026-08-29 | Advisor module, solo participation mode, competition status check, uid uniqueness check |
 | v0.4 | 2026-08-30 | Recruiting-hall filtering, team-list blank fix, iOS compatibility, profile page UX improvements |
+| v0.5 | 2026-09-20 | Consolidated `skillApi` (admin checks + delete reference check), fixed cloud-function load crash (`cloud.init()` order), fixed SWC helper crash, migrated `store/skills.js` to skillApi (zero changes at call sites) |
 
 ## 11. UI Screenshots
 

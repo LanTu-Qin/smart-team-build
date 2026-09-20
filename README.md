@@ -191,6 +191,63 @@ module '@swc/runtime/_array_with_holes.js' is not defined, require args is './_a
 > 判断口径：**先按 1 → 2 → 3 处理**；只有在放着不管会持续崩、且上面三步都无效时，才动语法。
 > 本项目的对象展开（`{ ...item }`）在多个页面与 `miniprogram_npm/@vant` 中大量使用，无差别替换会让改动面失控。
 
+**第三次（2026-09-20）复盘：换基础库无效，触发源不止一个**
+
+这次同样的报错，**把基础库从 `3.16.1` 降到 `2.33.0` 并没有解决**，定位到两个独立触发源：
+
+1. `store/index.js` 里为透传参数写的剩余参数 `async function (...args)` —— swc 降级时转译成
+   `var args = new Array(arguments.length)`，产生数组空位，直接拉起 `_array_with_holes`。
+   已改为显式参数 `function (name, desc)`（见 `store/index.js` 的 skills 劫持处）。
+2. `miniprogram_npm/@vant/weapp` 的构建产物里同样存在会被识别成数组空位的写法
+   （如 `datetime-picker/index.js` 的 `Array(n)`、`__spreadArray([], …)`）。
+   只要 `enhance` 或 `minified` 开着，构建 npm 后的代码就可能引用缺失的 helper。
+
+因此这次的最终处置是：**改掉剩余参数 + 关闭 `enhance`/`minified` + 删除 `miniprogram_npm` 重新「构建 npm」**。
+
+> 结论补充：**换基础库版本对本问题基本无效**（`3.16.1` 与 `2.33.0` 表现一致）。
+> 真正有效的顺序是：清缓存重开 → 关降级开关 → 重建 npm 包 → 最后才动语法。
+
+### 9.2 云函数坑：`cloud.init()` 必须在 `require('./service')` 之前
+
+**症状**：调用云函数报
+
+```
+Error: errCode: -504002 functions execute fail | errMsg: 145 code exit unexpected
+```
+
+云函数日志里**没有任何业务代码栈**，全是平台运行时（`/data/scf/frame/node16/runtime.js`），
+且 `InitFunction: 0ms / Duration: 0ms / MemUsage: 0.00MB` —— 说明用户代码一行都没执行。
+
+**根因**：`skillApi/index.js` 原本的顺序是
+
+```js
+const cloud = require('wx-server-sdk')
+const skillService = require('./service')   // ← 此刻还没 init
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+```
+
+而 `service.js` 顶层就 `module.exports = new SkillService()`，构造函数内立即调用 `cloud.database()`。
+SDK 未初始化时访问数据库会抛错，**模块加载阶段就崩**，云函数进程在 init 阶段直接退出。
+
+**修复**（与本项目 `teamsApi` 同口径）：
+
+1. `index.js`：`cloud.init()` 提到 `require('./service')` **之前**；
+2. `service.js`：**自带** `cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })`，不再依赖被 require 的顺序。
+
+**另一个易混淆的表现**：日志里出现
+
+```
+TypeError: Cannot read properties of undefined (reading 'toString')
+    at writeRuntimeFile (/data/scf/frame/node16/runtime.js:65:37)
+```
+
+这说明**云端代码包本身有问题**（空包 / 缺 `index.js`），不是 init 顺序问题。
+处置：在云开发控制台删除该函数 → 回到开发者工具重新「上传并部署：云端安装依赖」；
+上传后包内应含 `index.js`、`service.js`、`package.json`、`config.json` 4 个文件。
+
+> 部署后建议先在控制台做一次**云端测试**（参数 `{"action":"getAll"}`），
+> 确认返回 `{"code":0,...}` 再从小程序端触发，可避免把"没部署成功"误判成"代码有 bug"。
+
 
 ## 10. 版本记录
 
@@ -200,6 +257,7 @@ module '@swc/runtime/_array_with_holes.js' is not defined, require args is './_a
 | v0.2 | 2026-08-28 | 权限加固（`ensureAdmin`）、AI 输出规整、匹配池联动修复 |
 | v0.3 | 2026-08-29 | 指导老师模块、个人参赛模式、赛事状态校验、uid 唯一性校验 |
 | v0.4 | 2026-08-30 | 招募大厅过滤、队伍列表空白修复、iOS 真机兼容、资料页交互优化 |
+| v0.5 | 2026-09-20 | 聚合 `skillApi`（管理员校验 + delete 引用检查）、修复云函数加载期崩溃（`cloud.init()` 顺序）、修复小程序 swc helper 崩溃、`store/skills.js` 切换 skillApi（前端调用点零改动） |
 
 
 ## 11. 小程序界面展示
