@@ -411,8 +411,10 @@ skills.loadSkills = async function() {
   return res
 }
 const originAddNewSkill = skills.addSkill
-skills.addSkill = async function (name) {
-  const res = await originAddNewSkill.call(this, name)
+// 用 call 透传固定参数：避免 ...args 被 swc 转译成 new Array() 产生数组空位，
+// 触发 @swc/runtime/_array_with_holes.js 缺失导致页面加载崩溃。
+skills.addSkill = async function (name, desc) {
+  const res = await originAddNewSkill.call(this, name, desc)
   store.notifyModule('skills')
   return res
 }

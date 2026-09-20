@@ -184,6 +184,9 @@ const competition = {
   setBanner(newBanner) {
     this.state.bannerList = newBanner
   },
+  // 注意：服务端（competitionApi.aiGenDetail / service.aiGenerateDetail）自 2026-09-15 起
+  // 只接收 cid，name / url 一律从库内该赛事记录取（契约第 11 条，防止传入与记录不匹配的内容）。
+  // 这里保留 name / url 形参仅为兼容既有调用点，云函数会忽略它们。
   async aiGenerateDetail(cid, name, url) {
     console.log("进入store");
     const res = await wx.cloud.callFunction({

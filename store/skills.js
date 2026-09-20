@@ -44,10 +44,13 @@ const skills = {
 
   // 新增技能（调用云函数，成功后刷新缓存）
   // 注意：skillApi 的 add 带管理员校验 + 空值/重名校验，非管理员会被 -403 拒绝
-  async addSkill(skillName) {
+  // desc 选填：云函数 service.add(name, desc) 在 desc 非空时一并落库（与管理端口径一致）
+  async addSkill(skillName, desc) {
+    const params = { name: skillName }
+    if (desc !== undefined && desc !== null && desc !== '') params.desc = desc
     const res = await wx.cloud.callFunction({
       name: API_NAME,
-      data: { action: 'add', params: { name: skillName } }
+      data: { action: 'add', params }
     })
     // 云函数返回体在 res.result 上（旧写法误用 res.success / res.newSid，恒为 undefined）
     const data = res.result || {}
