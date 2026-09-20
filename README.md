@@ -30,13 +30,13 @@
 ### 2.1 赛事模块
 - **赛事大厅**：赛事列表展示，支持下拉刷新、按赛事筛选队伍；
 - **AI 生成详情**：管理员录入赛事名称/链接后，调用讯飞 MaaS 大模型自动生成赛事简介与含金量分析（管理员权限，防刷模型）；
-- 支持海报/详情图片上传、Word 转 HTML（`mammoth`）。
+- 支持海报/详情图片上传；**Word 导入为预留能力**（`wordToHtml` 目前是空壳，未实际解析）。
 
 ### 2.2 用户与技能画像
 - **微信静默登录**：`wxLogin` 自动建档，首次使用引导绑定学号/工号；
 - **个人资料**：头像上传（云存储）、昵称/邮箱/简介编辑（邮箱作队友联系方式）；
 - **技能管理**：技能字典多选，支持 1~5 星评级；
-- **AI 技能评级**：根据个人简介中的技能描述，调用大模型自动评级并入库，前端同步展示星级与颜色（1 银 ~ 5 红）。
+- **AI 技能评级**：根据个人简介中的技能描述，调用大模型自动评级并入库，前端同步展示星级与颜色（1 浅银灰 → 2 蓝 → 3 紫 → 4 金 → 5 红）。
 
 ### 2.3 队伍模块
 - **创建/编辑/删除队伍**：绑定多个参赛赛事（单个赛事最多同队 5 场）、设置人数上限；
@@ -52,13 +52,14 @@
 - 幂等设计：同类型待处理请求不重复创建。
 
 ### 2.5 智能匹配
-- 用户/队伍可进入**匹配池**，服务端按「技能需求 + 参赛赛事」双重交集过滤出互补推荐；
+- 用户/队伍可进入**匹配池**，服务端按「技能需求 + 参赛赛事」双重交集过滤出互补推荐；入池以 `type + targetId` 做**应用层唯一性校验**（check-then-write，尚未建数据库复合唯一索引）；
 - 退出匹配池时联动失效历史 pending 申请，防止幽灵请求。
 
 ### 2.6 管理员后台
-- **赛事管理**：增删改、AI 生成详情、Word 转 HTML；
+- **赛事管理**：增删改、AI 生成详情（Word 导入为预留能力，未实现）；
 - **管理员授权**：授权/取消 `isAdmin`、按 uid/用户名搜索用户。
 - 所有敏感操作在**服务端二次校验** `isAdmin`（防绕过前端越权调用）。
+  **覆盖范围有限，见第 9 节**：赛事写操作、管理员授权、技能字典写操作已覆盖；`requestApi`、`matching_poolApi` 与 `teamsApi` 的读接口尚未做调用者身份校验。
 
 ### 2.7 个人中心
 - 已加入队伍列表、指导关系、联系方式获取（同队校验，手机号永不下发，仅邮箱）。
@@ -69,12 +70,12 @@
 | --- | --- | --- |
 | 前端 | 微信原生小程序 + Vant Weapp | Glass-easel 组件框架，分包加载 |
 | 状态管理 | 自研 store（`store/`） | 分模块订阅/发布，异步方法劫持自动刷新视图 |
-| 后端 | 微信云开发 Serverless | 8 个云函数、约 51 个 action |
+| 后端 | 微信云开发 Serverless | 8 个云函数、63 个 action（userApi 19 / teamsApi 18 / competitionApi 9 / requestApi 5 / adminAuth 4 / skillApi 4 / matching_poolApi 4） |
 | 数据库 | 云数据库 + 云存储 | 6 个集合，数字 ID 关联（uid/tid/cid/sid） |
 | AI | 讯飞 MaaS 大模型（`xopdeepseekv32`） | 赛事详情生成、技能评级（非流式，超时 25s） |
 | 云环境 | `cloud1-d8gb9nir3847ec081` | 由 `app.js` / `project.config.json` 声明 |
 
-主要依赖：`@vant/weapp`（UI）、`axios`（云函数内调用 AI）、`mammoth`（Word 解析，competitionApi）。
+主要依赖：`@vant/weapp`（UI）、`axios`（云函数内调用 AI）。（`mammoth` 已作为依赖引入，但 Word 解析能力未实现，见第 9 节。）
 
 ## 4. 项目结构
 
@@ -105,7 +106,7 @@
 | `teamsApi` | 队伍全生命周期 | `create` `getList` `getByTid/Uid/Cid` `addMember` `removeMember` `addAdvisor` `removeAdvisor` `setTeamNeeds` `setCondition` `setMatchStatus` `update` `delete` 等 |
 | `requestApi` | 申请/邀请/处理 | `create`（支持 `subType=advisor`）`getByUser` `getByTeam` `getByCaptain` `handle` |
 | `matching_poolApi` | 匹配池 | `enterPool` `exitPool` `getMatchList` `getMyPool` |
-| `competitionApi` | 赛事管理 + AI 生成 | `getAll` `create` `update` `delete` `aiGenDetail` `wordToHtml` `getFileTempUrl`（写操作需管理员） |
+| `competitionApi` | 赛事管理 + AI 生成 | `getAll` `create` `update` `delete` `aiGenDetail` `getFileTempUrl`（写操作需管理员）；`wordToHtml` 为预留空壳、未实现 |
 | `getFileUrl` | fileID 批量换临时链接 | — |
 | `skillApi` | 技能字典 | `getAll` `add` `update` `delete`（写操作需管理员；`delete` 前做 4 处引用检查，有引用拦截、不级联） |
 
@@ -151,8 +152,11 @@
 - **登录态**：`wxLogin` / `updateProfile` / `getContact` 依赖微信 `OPENID`，云端控制台直接测试无效，需从小程序端验证。
 - **真实落库**：云函数写操作会直接改动数据库，测试请使用示例数据并及时清理。
 - **AI 响应慢**：大模型非流式调用约 10~25 秒，注意云函数超时与前端等待反馈。
-- **越权防护**：赛事写操作、管理员授权等敏感 action 均在服务端二次校验 `isAdmin`，云端直调会返回 `-403`，属预期。
-- **已知未实现**：`userApi.setMatch`、`userApi.deleteUser` 路由已声明但 service 层未实现，调用返回 `-500`（不影响现有业务）。
+- **越权防护（有限覆盖）**：赛事写操作、管理员授权、技能字典写操作均在服务端二次校验 `isAdmin`，云端直调返回 `-403`。
+  **边界**：`requestApi`、`matching_poolApi` 的全部 action 未做调用者身份校验；`teamsApi` 的 `getList` / `getByTid` / `getByUid` / `getByCid` 等读接口亦无鉴权。对外文档勿声称"全接口鉴权"。
+- **已知未实现**：`userApi.setMatch`、`userApi.deleteUser` 路由已声明但 service 层未实现，调用返回 `-500`（不影响现有业务）；`competitionApi.wordToHtml` 为预留空壳，不解析 Word（`mammoth` 依赖已引入但未接入）。
+- **AI 无服务端缓存**：`aiGenDetail` 结果不在服务端缓存，每次调用均请求大模型；前端仅按"是否已有内容"过滤待生成赛事，**不要**表述为"AI 结果缓存"。
+- **匹配池唯一性**：入池以 `type + targetId` 做应用层查重（check-then-write），**未建数据库复合唯一索引**，高并发下仍可能产生重复记录。
 - **环境变量**：密钥已迁移至云开发控制台，请勿在代码中提交明文 `AI_API_KEY`。
 
 ### 9.1 开发者工具坑：`@swc/runtime` helper 缺失（已踩两次）

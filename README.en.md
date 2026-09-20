@@ -20,13 +20,13 @@ This project delivers a complete solution as a WeChat Mini Program: a competitio
 ### 2.1 Competition Module
 - **Competition Hall**: list of competitions, pull-to-refresh, filter teams by competition;
 - **AI-Generated Details**: admins enter a competition name/link and the Xunfei MaaS LLM automatically writes an intro and value analysis (admin-only, to prevent model abuse);
-- Poster/detail image upload, Word-to-HTML conversion (`mammoth`).
+- Poster/detail image upload; **Word import is a reserved capability** (`wordToHtml` is a stub, not implemented).
 
 ### 2.2 User & Skill Profile
 - **Silent WeChat Login**: `wxLogin` auto-creates an account; first-time users are guided to bind a student/faculty ID;
 - **Personal Profile**: avatar upload (cloud storage), nickname/email/bio editing (email is the contact channel for teammates);
 - **Skill Management**: multiple selection from a skill dictionary, rated from 1 to 5 stars;
-- **AI Skill Rating**: the LLM rates each skill based on the bio's skill description and persists the result; the UI shows star level and color (1 silver – 5 red).
+- **AI Skill Rating**: the LLM rates each skill based on the bio's skill description and persists the result; the UI shows star level and color (1 light silver-grey → 2 blue → 3 purple → 4 gold → 5 red).
 
 ### 2.3 Team Module
 - **Create / Edit / Delete Teams**: bind multiple competitions (max 5 ongoing competitions per team), set the size cap;
@@ -42,13 +42,14 @@ This project delivers a complete solution as a WeChat Mini Program: a competitio
 - Idempotency: identical pending requests are never created twice.
 
 ### 2.5 Intelligent Matching
-- Users/teams can enter the **matching pool**; the server filters complementary recommendations via a **dual intersection of skill requirements and competitions**;
+- Users/teams can enter the **matching pool**; the server filters complementary recommendations via a **dual intersection of skill requirements and competitions**; pool entries are de-duplicated at the **application layer** by `type + targetId` (check-then-write; no composite unique index yet);
 - Leaving the pool invalidates stale pending applications to prevent ghost requests.
 
 ### 2.6 Admin Console
-- **Competition Management**: CRUD, AI-generated details, Word-to-HTML;
+- **Competition Management**: CRUD, AI-generated details (Word import reserved, not implemented);
 - **Admin Authorization**: grant/revoke `isAdmin`, search users by uid/username.
 - All sensitive operations are **re-verified server-side** via `isAdmin` (prevents bypassing the frontend).
+  **Coverage is limited — see section 9**: competition writes, admin authorization, and skill-dictionary writes are covered; `requestApi`, `matching_poolApi`, and the read actions of `teamsApi` have no caller identity check.
 
 ### 2.7 Personal Center
 - Joined team list, advisor relationships, contact retrieval (same-team verified; phone numbers are never exposed, email only).
@@ -59,12 +60,12 @@ This project delivers a complete solution as a WeChat Mini Program: a competitio
 | --- | --- | --- |
 | Frontend | WeChat Native Mini Program + Vant Weapp | Glass-easel component framework, sub-package loading |
 | State | Custom store (`store/`) | Per-module subscribe/publish; async methods auto-refresh views |
-| Backend | WeChat Cloud Development (Serverless) | 8 cloud functions, ~51 actions |
+| Backend | WeChat Cloud Development (Serverless) | 8 cloud functions, 63 actions (userApi 19 / teamsApi 18 / competitionApi 9 / requestApi 5 / adminAuth 4 / skillApi 4 / matching_poolApi 4) |
 | Data | Cloud Database + Cloud Storage | 6 collections, numeric-ID relationships (uid/tid/cid/sid) |
 | AI | Xunfei MaaS LLM (`xopdeepseekv32`) | Competition details & skill rating (non-streaming, 25s timeout) |
 | Cloud Env | `cloud1-d8gb9nir3847ec081` | Declared in `app.js` / `project.config.json` |
 
-Main dependencies: `@vant/weapp` (UI), `axios` (AI calls inside cloud functions), `mammoth` (Word parsing, competitionApi).
+Main dependencies: `@vant/weapp` (UI), `axios` (AI calls inside cloud functions). (`mammoth` is installed but Word parsing is not implemented — see section 9.)
 
 ## 4. Project Structure
 
@@ -95,7 +96,7 @@ Main dependencies: `@vant/weapp` (UI), `axios` (AI calls inside cloud functions)
 | `teamsApi` | Full team lifecycle | `create` `getList` `getByTid/Uid/Cid` `addMember` `removeMember` `addAdvisor` `removeAdvisor` `setTeamNeeds` `setCondition` `setMatchStatus` `update` `delete`, etc. |
 | `requestApi` | Apply / invite / handle | `create` (supports `subType=advisor`) `getByUser` `getByTeam` `getByCaptain` `handle` |
 | `matching_poolApi` | Matching pool | `enterPool` `exitPool` `getMatchList` `getMyPool` |
-| `competitionApi` | Competition management + AI generation | `getAll` `create` `update` `delete` `aiGenDetail` `wordToHtml` `getFileTempUrl` (writes require admin) |
+| `competitionApi` | Competition management + AI generation | `getAll` `create` `update` `delete` `aiGenDetail` `getFileTempUrl` (writes require admin); `wordToHtml` is a reserved stub, not implemented |
 | `getFileUrl` | Convert fileIDs to temp links | — |
 | `skillApi` | Skill dictionary | `getAll` `add` `update` `delete` (writes require admin; `delete` runs a 4-place reference check and refuses instead of cascading) |
 
@@ -141,8 +142,10 @@ Cloud functions read the Xunfei MaaS credentials from **environment variables** 
 - **Login state**: `wxLogin` / `updateProfile` / `getContact` depend on the WeChat `OPENID`; testing directly from the cloud console is ineffective — verify from the Mini Program.
 - **Real DB writes**: cloud function writes change the database immediately; use sample data and clean up after tests.
 - **Slow AI**: non-streaming LLM calls take ~10–25s; mind cloud function timeouts and frontend feedback.
-- **Authorization**: sensitive actions (competition writes, admin ops) are re-verified server-side (`isAdmin`); direct console calls return `-403` as expected.
-- **Known stubs**: `userApi.setMatch` and `userApi.deleteUser` are routed but not implemented in the service layer (return `-500`, do not affect current features).
+- **Authorization (limited coverage)**: competition writes, admin authorization, and skill-dictionary writes are re-verified server-side (`isAdmin`); direct console calls return `-403` as expected. **Boundary**: all actions of `requestApi` and `matching_poolApi`, plus the read actions of `teamsApi` (`getList` / `getByTid` / `getByUid` / `getByCid`), have no caller identity check — do not claim "every endpoint is authorized" in external docs.
+- **Known stubs**: `userApi.setMatch` and `userApi.deleteUser` are routed but not implemented in the service layer (return `-500`, do not affect current features); `competitionApi.wordToHtml` is a reserved stub that does not parse Word (`mammoth` is installed but not wired up).
+- **No server-side AI cache**: `aiGenDetail` results are not cached server-side — every call hits the LLM. The frontend only filters "competitions that already have content"; do not describe this as "AI result caching".
+- **Matching-pool uniqueness**: entries are de-duplicated at the application layer by `type + targetId` (check-then-write); there is **no composite unique index** in the database, so duplicates are still possible under concurrency.
 - **Secrets**: credentials live in the cloud console as env vars; never commit a plaintext `AI_API_KEY`.
 
 ### 9.1 DevTools Pitfall: Missing `@swc/runtime` Helpers (hit three times)
