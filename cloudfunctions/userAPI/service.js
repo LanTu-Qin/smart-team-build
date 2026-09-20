@@ -218,10 +218,20 @@ class UserService {
     return true
   }
 
-  // 5. 旧版用户名密码（保留你的旧接口）
-  async getByUid(uid) {
-    const res = await this.collection.where({ "userInfo.uid": uid }).get()
-    return res.data[0] || null
+  // 5. 按 uid 查用户（详情）
+  // 【契约第 10 条】Web 管理端详情需要「扁平 DTO + email」，而 C 端（subPackages/team/team_info.js）
+  //   依赖原来的嵌套 userInfo 结构 —— 因此**不直接改返回结构**，改为由调用方用 flat 参数显式选择：
+  //     flat: true   → 扁平 DTO + email（管理端）
+  //     不传 / false → 原始文档（C 端，完全向后兼容）
+  async getByUid(uid, options = {}) {
+    // 库里 userInfo.uid 是 number，统一 Number 归一，避免网关传字符串 "20260001" 查不到
+    const uidNum = Number(uid)
+    const res = await this.collection
+      .where({ 'userInfo.uid': Number.isNaN(uidNum) ? uid : uidNum })
+      .get()
+    const doc = res.data[0] || null
+    if (doc && options.flat) return this._toUserDTO(doc, { withEmail: true })
+    return doc
   }
   async getBatchUids(uidList) {
     const res = await this.collection.where({ "userInfo.uid": _.in(uidList) }).get()
@@ -557,10 +567,51 @@ class UserService {
   }
 
   /**
+   * 用户原始文档 → 契约 DTO（扁平化 + 脱敏，对齐 Web 管理端 GET /users）
+   * ----------------------------------------------------------------------------
+   * 【为何必须拍平】数据库是「混装结构」：
+   *   - userInfo 内：uid / username / avatar / institute / email / class / introduction
+   *   - 顶层      ：role / isAdmin / skills / skill_rating / tid_list / is_matching
+   * 原 getPage 直接下发嵌套 userInfo，Web 端 row.username 取不到值（契约第 10 条）。
+   * 另：老数据的 skill_rating / tid_list / is_matching 可能藏在 userInfo 内
+   * （store/user.js 就是 `userRaw.skill_rating || userRaw.userInfo.skill_rating` 双兜底），
+   * 故这里同样取值双兜底，兼容新旧数据。
+   * 【脱敏】默认不下发 email（列表脱敏）、_openid（身份标识）、_id（内部主键）；
+   *   详情接口可传 { withEmail: true } 显式带上 email（契约：邮箱只在详情下发）。
+   */
+  _toUserDTO(doc, { withEmail = false } = {}) {
+    if (!doc) return null
+    const info = doc.userInfo || {}
+    // 取第一个「非 null / 非 undefined」的值（0 / '' / false 视为有效值）
+    const pick = (...vals) => {
+      for (const v of vals) {
+        if (v !== undefined && v !== null) return v
+      }
+      return undefined
+    }
+    return {
+      uid: pick(info.uid, doc.uid) ?? null,
+      username: pick(info.username, doc.username) || '',
+      avatar: pick(info.avatar, doc.avatar) || '',
+      institute: pick(info.institute, doc.institute) || '',
+      class: pick(info.class, doc.class) || '',
+      introduction: pick(info.introduction, doc.introduction) || '',
+      role: doc.role || '',
+      isAdmin: !!doc.isAdmin,
+      skills: pick(doc.skills, info.skills) || [],
+      skill_rating: pick(doc.skill_rating, info.skill_rating) || {},
+      tid_list: pick(doc.tid_list, info.tid_list) || [],
+      is_matching: !!pick(doc.is_matching, info.is_matching),
+      // 邮箱只在**详情**接口下发（列表一律脱敏）：由 withEmail 显式开启
+      ...(withEmail ? { email: pick(info.email, doc.email) || '' } : {})
+    }
+  }
+
+  /**
    * 分页查询用户（管理端列表），对齐 Web 管理端契约 GET /users
    * - keyword 纯数字 → userInfo.uid 精确匹配；否则 → 用户名模糊（不区分大小写）
    * - role 精确筛选（student/teacher/admin）
-   * - 返回 { list, total, page, pageSize }；列表脱敏：不下发 email
+   * - 返回 { list, total, page, pageSize }；列表为扁平 DTO，不含 email / _openid / _id
    */
   async getPage(params = {}) {
     const page = Math.max(1, parseInt(params.page, 10) || 1)
@@ -588,15 +639,9 @@ class UserService {
       .limit(pageSize)
       .get()
 
-    // 隐私保护：列表不下发 email（手机号本就不落库）
-    const list = res.data.map(item => {
-      const copy = Object.assign({}, item)
-      if (copy.userInfo) {
-        copy.userInfo = Object.assign({}, copy.userInfo)
-        delete copy.userInfo.email
-      }
-      return copy
-    })
+    // 契约第 10 条：拍平成扁平 DTO（Web 端可直接 row.username 取用），
+    // 同时剔除 _openid / _id（身份标识与内部主键）与 email（列表脱敏）
+    const list = (res.data || []).map(doc => this._toUserDTO(doc))
     return { list, total: countRes.total, page, pageSize }
   }
 }

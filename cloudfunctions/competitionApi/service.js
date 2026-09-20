@@ -161,7 +161,14 @@ class CompetitionService {
       .skip((page - 1) * pageSize)
       .limit(pageSize)
       .get()
-    return { list: res.data, total: countRes.total, page, pageSize }
+    // 契约第 10 条：列表不下发 _id（内部主键，前端统一用 cid 作唯一标识，
+    // 下发 _id 会让"文档主键"泄漏到前端，且易被误当成业务 id 使用）
+    const list = (res.data || []).map(item => {
+      const copy = Object.assign({}, item)
+      delete copy._id
+      return copy
+    })
+    return { list, total: countRes.total, page, pageSize }
   }
 
   // ---------- 按 cid 查单条赛事（管理端详情） ----------
@@ -349,12 +356,13 @@ class CompetitionService {
 
   /**
    * AI生成赛事详情并更新数据库
+   * 【契约第 11 条】name / url 一律从库内已查出的记录取，不再由调用方传入：
+   * 调用方传错（或把 A 赛事的官网串给 B 赛事）会把"与记录不匹配"的内容写进该赛事
+   * content，而 content 落库后无法回溯其来源，事后不可辨。前端只需传 cid。
    * @param {Number} cid 赛事ID
-   * @param {String} name 赛事名称
-   * @param {String} url 赛事官网
    * @returns {String} 生成后的content文本
    */
-  async aiGenerateDetail(cid, name, url) {
+  async aiGenerateDetail(cid) {
     // 查询原赛事（契约：cid 必须为数字，统一 Number 化，避免 "1" 查不到 1）
     const targetCid = Number(cid)
     if (!Number.isInteger(targetCid)) throw badRequest('cid 不合法，必须为数字')
@@ -366,8 +374,13 @@ class CompetitionService {
     if (!targetRes.data.length) {
       throw new Error("赛事不存在，cid:" + cid)
     }
+    // 用库内真实 name / url（url 可能为空，#callAiModel 内已按"无官网"处理）
+    const target = targetRes.data[0]
+    const targetName = target.name || ''
+    const targetUrl = target.url || ''
+    console.log('[aiGenDetail] 采用库内赛事 name/url:', targetCid, targetName, targetUrl)
     // AI生成文本
-    const content = await this.#callAiModel(name, url)
+    const content = await this.#callAiModel(targetName, targetUrl)
     // 格式规整：清理Markdown残留、统一为固定9标签格式，防止模型输出走样
     const finalContent = this.#normalizeAiContent(content)
     // 更新数据库content字段

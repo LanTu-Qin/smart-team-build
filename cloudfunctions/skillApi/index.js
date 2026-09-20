@@ -15,21 +15,10 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const skillService = require('./service')
 
-// ==================== 【安全】管理员校验（与 competitionApi / teamsApi 同口径） ====================
+// ==================== 【安全】管理员校验（双通道，实现见 adminGuard.js） ====================
+// ① 小程序端：OPENID（原逻辑）  ② Web 管理端：验签 event.adminToken
 // 不能只依赖前端隐藏入口 —— 任何人都能直接 callFunction 伪造 action/params。
-// ⚠️ 落差提示：Web 端没有 wx OPENID（见契约第 4 节），ensureAdmin 会返回 false。
-//    Tier-2 接入时需在网关侧注入可信身份（如管理员 token），再按同一分支放行。
-async function ensureAdmin() {
-  const { OPENID } = cloud.getWXContext()
-  const db = cloud.database()
-  try {
-    const res = await db.collection('user').where({ _openid: OPENID }).get()
-    return !!(res.data[0] && res.data[0].isAdmin)
-  } catch (e) {
-    console.error('[skillApi] 校验管理员权限异常', e)
-    return false
-  }
-}
+const { ensureAdmin } = require('./adminGuard')
 
 /**
  * 云函数入口
@@ -54,7 +43,7 @@ exports.main = async (event) => {
 
       // 新增技能（管理员；名称非空且不得重名）
       case 'add': {
-        if (!(await ensureAdmin())) {
+        if (!(await ensureAdmin(event))) {
           return { code: -403, msg: '无权限：仅管理员可新增技能' }
         }
         // 【空值校验】原 skill_add 直接拿 skillName 写库，空字符串/纯空格也会落库
@@ -72,7 +61,7 @@ exports.main = async (event) => {
 
       // 修改技能（管理员；sid 必须存在；新名称非空且不得与他人重名）
       case 'update': {
-        if (!(await ensureAdmin())) {
+        if (!(await ensureAdmin(event))) {
           return { code: -403, msg: '无权限：仅管理员可修改技能' }
         }
         const sidNum = Number(params.sid)
@@ -98,7 +87,7 @@ exports.main = async (event) => {
 
       // 删除技能（管理员；先做 4 处引用检查，有引用一律拦截，绝不级联删除）
       case 'delete': {
-        if (!(await ensureAdmin())) {
+        if (!(await ensureAdmin(event))) {
           return { code: -403, msg: '无权限：仅管理员可删除技能' }
         }
         const sidNum = Number(params.sid)

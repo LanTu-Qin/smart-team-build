@@ -32,9 +32,43 @@ class SkillService {
   }
 
   // ---------------------------------------------------------------- 基础读写
-  async getAll() {
+  /** 只取原始技能行（内部用：重名校验等不需要引用计数，避免白扫两个集合） */
+  async listRaw() {
     const res = await this.collection.orderBy('sid', 'asc').get()
     return res.data || []
+  }
+
+  /**
+   * 技能全表 + 引用计数（Web 管理端 GET /skills）
+   * ----------------------------------------------------------------------------
+   * 【为何要 usage】管理端"使用情况"列与删除确认文案需要它：让删除风险**提前可见**，
+   *   也能暴露"幽灵键"（如 userSkills=0 但 userRating=6 说明评级里残留了已移除的技能）。
+   *   注意：usage 只是**提前告知**，真正的防线始终是 delete 前的 checkRefs。
+   * 【为何必须一次扫描聚合】扫 user 一次 + teams 一次 → 内存按 sid 归并成一张表。
+   *   若按技能逐个扫集合：25 个技能 × 4 处 = 100 次查询，云函数会明显变慢甚至超时。
+   * 【字段收敛】只返回契约 DTO（sid / name / desc / usage），不再下发 `_id`。
+   */
+  async getAll() {
+    const list = await this.listRaw()
+    const { map, truncated } = await this.buildUsageMap()
+    if (truncated) {
+      console.warn('[skillApi] usage 聚合受 MAX_SCAN 限制，计数可能不完整')
+    }
+    return list.map(s => {
+      const b = map.get(Number(s.sid))
+      return {
+        sid: s.sid,
+        name: s.name,
+        desc: s.desc || '',
+        usage: {
+          users: b ? b.userIds.size : 0,
+          teams: b ? b.teamIds.size : 0,
+          detail: b ? b.detail : { userSkills: 0, userRating: 0, teamNeeds: 0, teamMissing: 0 },
+          // true = 扫描超限、计数不完整（当前数据量下不会出现）
+          truncated,
+        },
+      }
+    })
   }
 
   async findBySid(sid) {
@@ -48,7 +82,7 @@ class SkillService {
    * @param {number|null} excludeSid update 时排除自身
    */
   async nameExists(name, excludeSid = null) {
-    const list = await this.getAll()
+    const list = await this.listRaw() // 只比名称，不需要 usage（避免白扫两个集合）
     const target = String(name).trim()
     return list.some(s => {
       if (String(s.name || '').trim() !== target) return false
@@ -109,6 +143,75 @@ class SkillService {
       if (skip >= MAX_SCAN) truncated = true
     }
     return { list, truncated }
+  }
+
+  /**
+   * 一次扫描聚合「所有技能」的引用计数（供 getAll 使用）
+   * ----------------------------------------------------------------------------
+   * 与 checkRefs 同口径：4 处引用；同一文档命中多处只计一次「人数 / 队伍数」。
+   * 身份用**扫描数组下标**而不是 `_id` —— 不依赖 projection 是否回传 `_id`。
+   * @returns {{map: Map<number,{userIds:Set,teamIds:Set,detail:object}>, truncated: boolean}}
+   */
+  async buildUsageMap() {
+    const u = await this.scan(this.userColl, ['skills', 'skill_rating'])
+    const t = await this.scan(this.teamColl, ['team_needs', 'team_missing'])
+
+    const map = new Map()
+    const bucket = (sid) => {
+      const key = Number(sid)
+      if (Number.isNaN(key)) return null
+      let b = map.get(key)
+      if (!b) {
+        b = {
+          userIds: new Set(),
+          teamIds: new Set(),
+          detail: { userSkills: 0, userRating: 0, teamNeeds: 0, teamMissing: 0 },
+        }
+        map.set(key, b)
+      }
+      return b
+    }
+
+    u.list.forEach((doc, idx) => {
+      if (Array.isArray(doc.skills)) {
+        // 同一文档里重复写的 sid 只计一次
+        new Set(doc.skills.map(Number)).forEach(sid => {
+          const b = bucket(sid)
+          if (!b) return
+          b.detail.userSkills++
+          b.userIds.add(idx)
+        })
+      }
+      if (doc.skill_rating && typeof doc.skill_rating === 'object') {
+        Object.keys(doc.skill_rating).forEach(k => {
+          const b = bucket(k)
+          if (!b) return
+          b.detail.userRating++
+          b.userIds.add(idx)
+        })
+      }
+    })
+
+    t.list.forEach((doc, idx) => {
+      if (doc.team_needs && typeof doc.team_needs === 'object') {
+        Object.keys(doc.team_needs).forEach(k => {
+          const b = bucket(k)
+          if (!b) return
+          b.detail.teamNeeds++
+          b.teamIds.add(idx)
+        })
+      }
+      if (doc.team_missing && typeof doc.team_missing === 'object') {
+        Object.keys(doc.team_missing).forEach(k => {
+          const b = bucket(k)
+          if (!b) return
+          b.detail.teamMissing++
+          b.teamIds.add(idx)
+        })
+      }
+    })
+
+    return { map, truncated: !!(u.truncated || t.truncated) }
   }
 
   /**

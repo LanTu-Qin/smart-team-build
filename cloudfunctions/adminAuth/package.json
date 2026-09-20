@@ -1,0 +1,15 @@
+{
+  "name": "adminAuth",
+  "version": "1.0.0",
+  "description": "管理端认证：登录 / 会话校验 / 首次设密 / 改密（HMAC 自签 token + bcrypt 密码哈希）",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "wx-server-sdk": "latest",
+    "bcryptjs": "^2.4.3"
+  }
+}

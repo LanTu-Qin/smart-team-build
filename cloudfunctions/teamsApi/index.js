@@ -10,23 +10,11 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 // 权限矩阵：队长 = 全部写权限；管理员 = 与队长同等（便于后台处置违规队伍）；
 //           成员本人 = 仅可加入/退出自己；指导老师 = 仅可解除自己的指导关系。
 
-// ==================== 【安全】管理员校验（照抄 competitionApi 的写法） ====================
-// 本函数同时服务 C 端小程序与 Web 管理端。管理端的高危操作必须与 competitionApi 一致，
-// 在云函数里二次校验调用者是否为管理员（user 集合 isAdmin === true），
+// ==================== 【安全】管理员校验（双通道，实现见 adminGuard.js） ====================
+// 本函数同时服务 C 端小程序与 Web 管理端：
+//   ① 小程序端：OPENID（原逻辑）  ② Web 管理端：验签 event.adminToken
 // 不能只依赖前端入口隐藏按钮 —— 任何人都能直接 callFunction 伪造 action/params。
-// ⚠️ 落差提示：Web 端没有 wx OPENID（见契约第 4 节），ensureAdmin 会返回 false。
-//    Tier-2 接入时需在网关侧注入可信身份（如管理员 token），再按同一分支放行。
-async function ensureAdmin() {
-  const { OPENID } = cloud.getWXContext()
-  const db = cloud.database()
-  try {
-    const res = await db.collection('user').where({ _openid: OPENID }).get()
-    return !!(res.data[0] && res.data[0].isAdmin)
-  } catch (e) {
-    console.error('[teamsApi] 校验管理员权限异常', e)
-    return false
-  }
-}
+const { ensureAdmin } = require('./adminGuard')
 
 /** 解析调用者身份；无 OPENID（云端控制台/网关直调）或用户不存在时返回 null */
 async function getCaller() {
@@ -147,6 +135,19 @@ exports.main = async (event, context) => {
         if (Number(teamInfo.leader) !== Number(c.uid)) {
           return { code: -403, msg: '无权限以他人身份创建队伍' }
         }
+        // 【成员伪造修复｜2026-09-15】members 只认队长本人：其余成员必须经 addMember / 申请 / 邀请进入。
+        // 此前 members 由客户端原样落库，可伪造他人 uid 进成员名单（虚增成员、挤占 maxNum 名额、
+        // 影响 team_missing 与匹配展示）。
+        // 已核对 C 端仅有的两处创建入口（team_push.js 常规建队、competition_info.js 个人赛报名）
+        // 都只传 { [uid]: 技能sid }，因此收窄为零兼容风险。
+        const rawMembers = teamInfo.members || {}
+        const rawLeaderSkill = rawMembers[String(c.uid)] !== undefined
+          ? rawMembers[String(c.uid)]
+          : rawMembers[c.uid]
+        // 兜底 0 与 requestApi.create 的 skillId 默认值口径一致；calcTeamMissing 只按技能计数，0 无副作用
+        teamInfo.members = {
+          [String(c.uid)]: rawLeaderSkill === undefined || rawLeaderSkill === null ? 0 : rawLeaderSkill
+        }
         const createRes = await teamsService.create(teamInfo)
         if (createRes.code !== 0) return createRes
         return { code: 0, data: { tid: createRes.data.tid }, msg: '创建成功' }
@@ -263,8 +264,10 @@ exports.main = async (event, context) => {
           if (!perm.ok) return { code: perm.code, msg: perm.msg }
         } else {
           // 无 OPENID（Web 管理端/网关直调）：才单独走 ensureAdmin，与 competitionApi 口径一致。
-          // ⚠️ 当前 Web 端无 wx OPENID，ensureAdmin 恒为 false；Tier-2 网关注入可信身份后在此放行。
-          if (!(await ensureAdmin())) {
+          // 【2026-09-19 更新】ensureAdmin 已是双通道：无 OPENID 时验签 event.adminToken
+          //   （HMAC 自签 → uid → 重读 isAdmin → 比对 adminTokenVersion）。
+          //   已实测：Web 端匿名登录调用时 getWXContext().OPENID 为空，因此确实走 adminToken 分支。
+          if (!(await ensureAdmin(event))) {
             return { code: -403, msg: '无权限删除该队伍（仅队长或管理员）' }
           }
         }

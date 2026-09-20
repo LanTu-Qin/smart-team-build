@@ -5,19 +5,10 @@ cloud.init({
   env: cloud.DYNAMIC_CURRENT_ENV
 })
 
-// 【新增】校验调用者是否为管理员（user 集合 isAdmin === true）
-// 用于保护 setAdmin / deleteUser / searchUsers 等敏感操作，防止越权
-async function ensureAdmin() {
-  const { OPENID } = cloud.getWXContext()
-  const db = cloud.database()
-  try {
-    const res = await db.collection('user').where({ _openid: OPENID }).get()
-    return !!(res.data[0] && res.data[0].isAdmin)
-  } catch (e) {
-    console.error('校验管理员权限异常', e)
-    return false
-  }
-}
+// ==================== 【安全】管理员校验（双通道，实现见 adminGuard.js） ====================
+// ① 小程序端：OPENID（原逻辑）  ② Web 管理端：验签 event.adminToken
+// 用于保护 setAdmin / searchUsers / getPage / deleteUser 等敏感操作，防止越权。
+const { ensureAdmin } = require('./adminGuard')
 
 exports.main = async (event, context) => {
   const wxContext = cloud.getWXContext()
@@ -29,9 +20,11 @@ exports.main = async (event, context) => {
   try {
     let res
     switch (action) {
-      // 根据uid查询单个用户完整信息
+      // 根据uid查询单个用户（详情）
+      // 【契约第 10 条】params.flat=true → 扁平 DTO + email（Web 管理端）；
+      //   不传则返回原始嵌套文档（C 端 team_info.js 依赖嵌套结构，保持向后兼容）
       case 'getByUid':
-        res = await userService.getByUid(params.uid)
+        res = await userService.getByUid(params.uid, { flat: !!params.flat })
         return {
           code: 0, data: res, msg: 'success'
         }
@@ -61,21 +54,21 @@ exports.main = async (event, context) => {
         }
       // 设置管理员权限（仅管理员：授予/取消 isAdmin）
       case 'setAdmin':
-        if (!(await ensureAdmin())) return { code: -403, msg: '无管理员权限' }
+        if (!(await ensureAdmin(event))) return { code: -403, msg: '无管理员权限' }
         await userService.setAdmin(params.uid, params.isAdmin)
         return {
           code: 0, msg: '权限修改成功'
         }
       // 搜索用户（仅管理员，供授权管理页使用；keyword 支持 uid 或用户名）
       case 'searchUsers':
-        if (!(await ensureAdmin())) return { code: -403, msg: '无管理员权限' }
+        if (!(await ensureAdmin(event))) return { code: -403, msg: '无管理员权限' }
         res = await userService.searchUsers(params.keyword)
         return {
           code: 0, data: res, msg: 'success'
         }
       // 分页查询用户（仅管理员，管理端列表）：params { page, pageSize, keyword, role }
       case 'getPage':
-        if (!(await ensureAdmin())) return { code: -403, msg: '无管理员权限' }
+        if (!(await ensureAdmin(event))) return { code: -403, msg: '无管理员权限' }
         res = await userService.getPage(params || {})
         return {
           code: 0, data: res, msg: 'success'
@@ -112,7 +105,7 @@ exports.main = async (event, context) => {
         }
       // 删除用户（仅管理员）
       case 'deleteUser':
-        if (!(await ensureAdmin())) return { code: -403, msg: '无管理员权限' }
+        if (!(await ensureAdmin(event))) return { code: -403, msg: '无管理员权限' }
         await userService.deleteUser(params.uid)
         return {
           code: 0, msg: '用户已删除'
